@@ -284,17 +284,95 @@
   // ========================================
   // 💳 PAGOS
   // ========================================
-  function renderPaymentsMatrix(wf='all') {
-    const t=getTanda(), cont=document.getElementById('payments-matrix'), wh=document.getElementById('weeks-header'), mb=document.getElementById('matrix-body'), wt=document.getElementById('weeks-total'), gt=document.getElementById('grand-total');
-    if(!cont||!t)return;
-    document.getElementById('current-week-badge').textContent=t.currentWeek;
-    const weeks=Array.from({length:t.totalWeeks},(_,i)=>i+1);
-    wh.innerHTML=weeks.map(w=>`<div class="week-cell ${w===t.currentWeek?'current':''}" data-week="${w}"><span class="week-num">${w}</span><span class="week-date">${getWeekDate(t.startDate,w,t.frequency)}</span></div>`).join('');
-    mb.innerHTML=t.participants.filter(p=>p.status==='active').map(p=>{const pc=p.paidWeeks.length,tp=pc*t.amount;return`<div class="matrix-row" data-participant="${p.id}"><div class="participant-cell"><div class="participant-info">${escapeHtml(p.name)}<small>Turno #${p.nextTurn}</small></div></div><div class="weeks-grid">${weeks.map(w=>{const ip=p.paidWeeks.includes(w),ic=w===t.currentWeek,ir=ip&&p.received;let sc='pending',icn='⏳';if(ip){sc='paid';icn='✅';if(ir)sc+=' received';}else if(w<t.currentWeek){sc='late';icn='❌';}return`<div class="payment-cell" data-participant="${p.id}" data-week="${w}" title="${ip?'Pagado':w<t.currentWeek?'Atrasado':'Pendiente'}" role="button" tabindex="0"><span class="payment-status ${sc}">${icn}</span></div>`;}).join('')}</div><div class="summary-cell">${formatCurrency(tp,t.currency)}</div></div>`;}).join('');
-    wt.innerHTML=weeks.map(w=>{const pc=t.participants.filter(p=>p.status==='active'&&p.paidWeeks.includes(w)).length;return`<div class="week-total">${formatCurrency(pc*t.amount,t.currency)}</div>`;}).join('');
-    const grand=t.participants.filter(p=>p.status==='active').reduce((s,p)=>s+(p.paidWeeks.length*t.amount),0);
-    gt.textContent=formatCurrency(grand,t.currency);
-    cont.querySelectorAll('.payment-cell').forEach(c=>{c.addEventListener('click',e=>{const pid=parseInt(e.currentTarget.dataset.participant),wk=parseInt(e.currentTarget.dataset.week);togglePaymentForWeek(pid,wk);});c.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();const pid=parseInt(e.currentTarget.dataset.participant),wk=parseInt(e.currentTarget.dataset.week);togglePaymentForWeek(pid,wk);}});});
+  function renderPaymentsMatrix(wf = 'all') {
+    const t = getTanda();
+    const cont = document.getElementById('payments-matrix');
+    const wh = document.getElementById('weeks-header');
+    const mb = document.getElementById('matrix-body');
+    const wt = document.getElementById('weeks-total');
+    const gt = document.getElementById('grand-total');
+    const badge = document.getElementById('current-week-badge');
+
+    if (!cont || !t) return;
+
+    // Actualizar badge de semana actual
+    if (badge) badge.textContent = t.currentWeek;
+
+    const weeks = Array.from({ length: t.totalWeeks }, (_, i) => i + 1);
+    
+    // 1. GENERAR ENCABEZADOS (Semanas + QUIÉN RECIBE)
+    wh.innerHTML = weeks.map(w => {
+      // Lógica: ¿Quién recibe en la semana 'w'? 
+      // Usualmente quien tiene nextTurn == w, o la lógica de tu tanda.
+      // Aquí asumimos que si el turno es 'w', recibe en la semana 'w'.
+      const receiver = t.participants.find(p => p.nextTurn === w);
+      const receiverName = receiver ? `🎁 ${receiver.name.split(' ')[0]}` : '';
+      const isCurrent = w === t.currentWeek;
+      
+      return `
+        <div class="week-cell ${isCurrent ? 'current' : ''}" data-week="${w}">
+          <span class="week-num">S${w}</span>
+          <span class="week-date">${getWeekDate(t.startDate, w, t.frequency)}</span>
+          ${receiverName ? `<small style="font-size:0.65rem; color:var(--success); display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${receiverName}</small>` : ''}
+        </div>
+      `;
+    }).join('');
+
+    // 2. GENERAR CUERPO (Participantes y sus pagos)
+    mb.innerHTML = t.participants
+      .filter(p => p.status !== 'inactive') // Mostrar activos y pendientes
+      .map(p => {
+        const totalPaid = p.paidWeeks.length * t.amount;
+        const isReceiverInCurrentWeek = p.nextTurn === t.currentWeek;
+
+        return `
+          <div class="matrix-row" data-participant="${p.id}">
+            <div class="participant-cell sticky-left ${isReceiverInCurrentWeek ? 'highlight-row' : ''}">
+              <div class="participant-info">
+                ${escapeHtml(p.name)}
+                <small>Turno #${p.nextTurn} ${p.status === 'pending' ? '(Pendiente)' : ''}</small>
+              </div>
+            </div>
+            <div class="weeks-grid">
+              ${weeks.map(w => {
+                const isPaid = p.paidWeeks.includes(w);
+                const isLate = w < t.currentWeek && !isPaid;
+                let sc = 'pending', icn = '⏳';
+                
+                if (isPaid) { sc = 'paid'; icn = '✅'; } 
+                else if (isLate) { sc = 'late'; icn = '❌'; }
+                
+                // Si recibió el dinero (lógica simple: si pasó su turno y todos pagaron esa semana - opcional)
+                // Aquí marcamos 'received' si pagó esa semana
+                if (isPaid && p.received) sc += ' received';
+
+                return `
+                  <div class="payment-cell" data-participant="${p.id}" data-week="${w}" tabindex="0">
+                    <span class="payment-status ${sc}">${icn}</span>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+            <div class="summary-cell sticky-right">
+              ${formatCurrency(totalPaid, t.currency)}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+    // 3. GENERAR FOOTER (Totales por semana)
+    wt.innerHTML = weeks.map(w => {
+      const count = t.participants.filter(p => p.status !== 'inactive' && p.paidWeeks.includes(w)).length;
+      const total = count * t.amount;
+      return `<div class="week-total" style="text-align:center; padding-top:10px;">${formatCurrency(total, t.currency)}</div>`;
+    }).join('');
+
+    // Total General Recaudado
+    const grandTotal = t.participants
+      .filter(p => p.status !== 'inactive')
+      .reduce((sum, p) => sum + (p.paidWeeks.length * t.amount), 0);
+    
+    gt.textContent = formatCurrency(grandTotal, t.currency);
   }
   function renderPayments(wf='all') {
     const isM=document.body.classList.contains('payments-matrix-view');
