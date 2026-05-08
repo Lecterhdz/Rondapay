@@ -179,6 +179,22 @@
     const t=getTanda(); if(!t)return; const s=calculateStats(t);
     createChart('status-chart',{type:'doughnut',data:{labels:['Pagado','Pendiente','Atrasado'],datasets:[{data:[s.paid,s.pending,s.late],backgroundColor:['#10b981','#f59e0b','#ef4444'],borderWidth:0,spacing:4}]},options:{responsive:true,maintainAspectRatio:false,cutout:'70%',plugins:{legend:{position:'bottom',labels:{usePointStyle:true,padding:20}},tooltip:{backgroundColor:'rgba(15,23,42,0.9)',padding:12,cornerRadius:8}}}});
     const weeks=Array.from({length:Math.min(t.currentWeek,6)},(_,i)=>`Sem ${i+1}`), pd=weeks.map((_,i)=>t.participants.filter(p=>p.paidWeeks.includes(i+1)).length*t.amount);
+    // ✅ POBLAR FILTRO "payment-week" DINÁMICAMENTE
+    const filter = document.getElementById('payment-week'); // ← ID correcto
+    if (filter) {
+      // Guardar selección actual para restaurarla después
+      const current = filter.value;
+      // Limpiar y agregar opción "Todas"
+      filter.innerHTML = '<option value="all">📅 Todas las semanas</option>';
+      // Agregar semanas
+      weeks.forEach(w => {
+        filter.innerHTML += `<option value="${w}">Semana ${w}</option>`;
+      });
+      // Restaurar selección si es válida
+      if (current && weeks.includes(parseInt(current))) {
+        filter.value = current;
+      }
+    }    
     createChart('progress-chart',{type:'bar',data:{labels:weeks,datasets:[{label:'Recaudado ($)',data:pd,backgroundColor:'rgba(79,70,229,0.8)',borderRadius:6,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'rgba(0,0,0,0.05)'}},x:{grid:{display:false}}}}});
   }
   function initAdminCharts() {
