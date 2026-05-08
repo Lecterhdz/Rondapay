@@ -1,12 +1,38 @@
 {
   "name": "RondaPay - Gestión de Tanda",
   "short_name": "RondaPay",
-  "start_url": "./",
+  "description": "Organiza tus rondas de ahorro de forma simple y segura",
+  "start_url": "./?source=pwa",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
   "background_color": "#f8fafc",
   "theme_color": "#4f46e5",
+  "theme_color_media": [
+    { "media": "(prefers-color-scheme: light)", "color": "#4f46e5" },
+    { "media": "(prefers-color-scheme: dark)", "color": "#0f172a" }
+  ],
+  "orientation": "portrait-primary",
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "categories": ["finance", "productivity", "utilities"],
+  "lang": "es-MX",
+  "dir": "ltr",
+  "shortcuts": [
+    {
+      "name": "Nueva Tanda",
+      "short_name": "Nueva",
+      "description": "Crear una nueva ronda de ahorro",
+      "url": "./#new-tanda",
+      "icons": [{ "src": "./icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Participantes",
+      "short_name": "Equipo",
+      "description": "Ver y gestionar participantes",
+      "url": "./#participants",
+      "icons": [{ "src": "./icon-192.png", "sizes": "192x192" }]
+    }
   ]
 }
