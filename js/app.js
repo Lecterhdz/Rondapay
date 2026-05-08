@@ -668,7 +668,7 @@
           addParticipant(name, phone);
         }
       }
-    });    
+     });    
     el.paymentWeek?.addEventListener('change',e=>renderPayments(e.target.value));
     el.markPaidBtn?.addEventListener('click',()=>{const w=el.paymentWeek?.value||'all';showToast(`🔧 Función "Marcar pagado masivo" para ${w} - Próximamente`,'info');});
 
@@ -886,4 +886,4 @@
   // 🏁 ARRANQUE
   // ========================================
   if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',init);}else{init();}
- })(); // ← FIN DEL IIFE
+  }})(); // ← FIN DEL IIFE
