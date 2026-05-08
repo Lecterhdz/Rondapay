@@ -404,7 +404,46 @@
     m.querySelectorAll('.close-modal').forEach(b=>b.addEventListener('click',()=>m.remove()));
     m.addEventListener('click',e=>{if(e.target===m)m.remove();});
   }
+  // ========================================
+  // 🔄 SELECTOR DE TANDA
+  // ========================================
+  function renderTandaSelector() {
+    const select = document.getElementById('tanda-selector');
+    if (!select) return;
+    
+    const list = MultiTanda.getList();
+    if (!list.length) {
+      select.innerHTML = '<option value="">Sin tandas</option>';
+      return;
+    }
+    
+    const activeId = sessionStorage.getItem('rondapay_active_tanda');
+    select.innerHTML = list.map(id => {
+      const t = MultiTanda.get(id);
+      const name = t?.name || 'Sin nombre';
+      const selected = id === activeId ? 'selected' : '';
+      return `<option value="${id}" ${selected}>${escapeHtml(name)}</option>`;
+    }).join('');
+  }
 
+  function setupTandaSelector() {
+    const select = document.getElementById('tanda-selector');
+    if (!select) return;
+    
+    // Renderizar al cargar
+    renderTandaSelector();
+    
+    // Listener para cambiar de tanda
+    select.addEventListener('change', (e) => {
+      const id = e.target.value;
+      if (id) {
+        MultiTanda.setActive(id);
+        showToast('🔄 Tanda cambiada', 'info');
+        // Re-renderizar vista actual
+        renderView(state.currentView);
+      }
+    });
+  }
   // ========================================
   // 💳 PAGOS
   // ========================================
@@ -669,7 +708,36 @@
     renderTempParticipants(){const c=document.getElementById('participants-preview');if(!c)return;if(!this.tempParticipants.length){c.innerHTML='<div class="empty-preview">Los participantes aparecerán aquí...</div>';return;}c.innerHTML=this.tempParticipants.map(p=>`<span class="participant-chip">${escapeHtml(p.name)}<button type="button" class="remove" data-id="${p.id}" title="Eliminar">✕</button></span>`).join('');c.querySelectorAll('.remove').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();this.removeTempParticipant(parseInt(e.currentTarget.dataset.id));}));},
     initConfirmModal(){const m=document.getElementById('modal-confirm-tanda'),cb=m?.querySelectorAll('.modal-close'),cf=document.getElementById('btn-confirm-create');cb?.forEach(b=>b.addEventListener('click',()=>m.classList.add('hidden')));m?.addEventListener('click',e=>{if(e.target===m)m.classList.add('hidden');});cf?.addEventListener('click',()=>{this.createTanda();m.classList.add('hidden');});},
     handleSubmit(e){e.preventDefault();const n=this.fields.name?.value.trim(),a=parseFloat(this.fields.amount?.value);if(!n||n.length<3){showToast('❌ El nombre debe tener al menos 3 caracteres','error');this.fields.name?.focus();return;}if(!a||a<10){showToast('❌ El monto mínimo es $10','error');this.fields.amount?.focus();return;}const pv=calculateTandaPreview(a,parseInt(this.fields.participants.value),this.fields.frequency.value,new Date(this.fields.start.value));document.getElementById('confirm-name').textContent=n;document.getElementById('confirm-amount').textContent=formatCurrency(a,this.fields.currency.value);document.getElementById('confirm-participants').textContent=this.fields.participants.value;document.getElementById('confirm-duration').textContent=pv.duration;document.getElementById('modal-confirm-tanda')?.classList.remove('hidden');},
-    createTanda(){const tanda={id:crypto.randomUUID?.()||Date.now().toString(36),name:this.fields.name.value.trim(),amount:parseFloat(this.fields.amount.value),currency:this.fields.currency.value,frequency:this.fields.frequency.value,startDate:this.fields.start.value,totalWeeks:parseInt(this.fields.participants.value),currentWeek:1,createdAt:new Date().toISOString(),participants:this.tempParticipants.length?this.tempParticipants.map((p,i)=>({id:i+1,name:p.name,phone:p.phone,status:'active',paidWeeks:[],nextTurn:p.turn,received:false})):[]};Storage.set(CONFIG.DATA_KEY,tanda);this.tempParticipants=[];this.el?.reset();this.updatePreview();showToast('🎉 ¡Tanda creada exitosamente!');renderView('dashboard');if(!tanda.participants.length)setTimeout(()=>showToast('💡 Tip: Agrega participantes desde el menú 👥','info'),2000);}
+        createTanda() {
+      const tanda = {
+        id: crypto.randomUUID?.() || `tanda_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+        name: this.fields.name.value.trim(),
+        amount: parseFloat(this.fields.amount.value),
+        currency: this.fields.currency.value,
+        frequency: this.fields.frequency.value,
+        startDate: this.fields.start.value,
+        totalWeeks: parseInt(this.fields.participants.value),
+        currentWeek: 1,
+        createdAt: new Date().toISOString(),
+        participants: this.tempParticipants.length ? 
+          this.tempParticipants.map((p,i)=>({
+            id:i+1,name:p.name,phone:p.phone,status:'active',
+            paidWeeks:[],nextTurn:p.turn,received:false
+          })) : []
+      };
+      
+      // ✅ Guardar con MultiTanda (no sobrescribe)
+      MultiTanda.save(tanda.id, tanda);
+      MultiTanda.setActive(tanda.id);
+      
+      this.tempParticipants = [];
+      this.el?.reset();
+      this.updatePreview();
+      
+      showToast('🎉 ¡Tanda creada exitosamente!', 'success');
+      renderTandaSelector(); // 👈 Actualizar selector
+      renderView('dashboard');
+    }
   };
 
   // ========================================
@@ -712,7 +780,7 @@
   // ========================================
   // 🚀 INICIALIZACIÓN
   // ========================================
-  function init(){initTheme();initDefaultData();checkSession();checkAdminAccess();setupEventListeners();registerSW();initInstallPrompt();setTimeout(() => {if(modal?.init)modal.init();if(newTandaForm?.init)newTandaForm.init();if(editParticipantModal?.init)editParticipantModal.init();}, 50);injectDynamicStyles();if(window.location.hostname==='localhost')console.log('🚀 RondaPay initialized',{session:sessionStorage.getItem(CONFIG.SESSION_KEY)?'active':'guest',theme:localStorage.getItem(CONFIG.THEME_KEY)||'light',tanda:Storage.get(CONFIG.DATA_KEY)?.name||'none'});}
+  function init(){initTheme();initDefaultData();MultiTanda.migrateLegacy();checkSession();checkAdminAccess();setupEventListeners();setupTandaSelector();registerSW();initInstallPrompt();setTimeout(() => {if(modal?.init)modal.init();if(newTandaForm?.init)newTandaForm.init();if(editParticipantModal?.init)editParticipantModal.init();}, 50);injectDynamicStyles();if(window.location.hostname==='localhost')console.log('🚀 RondaPay initialized',{session:sessionStorage.getItem(CONFIG.SESSION_KEY)?'active':'guest',theme:localStorage.getItem(CONFIG.THEME_KEY)||'light',tanda:Storage.get(CONFIG.DATA_KEY)?.name||'none'});}
   // ========================================
   // 📤 EXPORTAR PAGOS A PDF
   // ========================================
