@@ -978,8 +978,10 @@
         togglePayment(id);
       }
       // Editar participante ✏️
-      else if (btn.classList.contains('edit-participant')) {
-        editParticipant(id);
+      else if (btn.classList.contains('edit-participant')) {  // ✅ ESTE ES EL NUEVO
+        const tanda = getTanda();
+        const p = tanda.participants.find(x => x.id === id);
+        if (p) editParticipantModal.open(p);
       }
       // Eliminar participante 🗑️
       else if (btn.classList.contains('delete-participant')) {
@@ -1353,7 +1355,7 @@
     // 2️⃣ Inicializar componentes UI
     if (modal?.el) modal.init();              // Modal participante
     if (newTandaForm?.el) newTandaForm.init(); // Formulario nueva tanda
-    
+    if (editParticipantModal?.el) editParticipantModal.init();  // ✅ AGREGAR ESTA LÍNEA
     // 3️⃣ Inyectar estilos dinámicos (solo si no existen)
     injectDynamicStyles();
     
@@ -1981,7 +1983,86 @@
       f: tanda.frequency, p: tanda.totalWeeks
     }));
     return `${window.location.origin}${window.location.pathname}?template=${config}`;
-  }   
+  }  
+    // ========================================
+  // ✏️ MODAL: EDITAR PARTICIPANTE
+  // ========================================
+  const editParticipantModal = {
+    el: document.getElementById('modal-edit-participant'),
+    form: document.getElementById('form-edit-participant'),
+    idField: document.getElementById('edit-participant-id'),
+    nameField: document.getElementById('edit-name'),
+    phoneField: document.getElementById('edit-phone'),
+    turnField: document.getElementById('edit-turn'),
+    
+    open(participant) {
+      if (!participant) return;
+      this.idField.value = participant.id;
+      this.nameField.value = participant.name;
+      this.phoneField.value = participant.phone;
+      this.turnField.value = participant.nextTurn;
+      this.el.classList.remove('hidden');
+      this.nameField.focus();
+      document.body.style.overflow = 'hidden';
+    },
+    
+    close() {
+      this.el.classList.add('hidden');
+      document.body.style.overflow = '';
+      this.form.reset();
+    },
+    
+    init() {
+      if (!this.el) return;
+      
+      // Cerrar modal
+      this.el.querySelectorAll('.modal-close').forEach(btn => {
+        btn.addEventListener('click', () => this.close());
+      });
+      this.el.addEventListener('click', (e) => {
+        if (e.target === this.el) this.close();
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !this.el.classList.contains('hidden')) this.close();
+      });
+      
+      // Submit del formulario
+      this.form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        this.saveChanges();
+      });
+    },
+    
+    saveChanges() {
+      const id = parseInt(this.idField.value);
+      const name = this.nameField.value.trim();
+      const phone = this.phoneField.value.trim().replace(/\D/g, '');
+      const turn = parseInt(this.turnField.value);
+      
+      if (name.length < 2 || phone.length !== 10) {
+        showToast('❌ Verifica nombre y teléfono', 'error');
+        return;
+      }
+      
+      const tanda = getTanda();
+      const p = tanda.participants.find(x => x.id === id);
+      if (!p) return;
+      
+      // Actualizar datos
+      p.name = name;
+      p.phone = phone;
+      p.nextTurn = turn;
+      
+      // Reordenar por turno si cambió
+      tanda.participants.sort((a, b) => a.nextTurn - b.nextTurn);
+      
+      saveTanda(tanda);
+      renderParticipants();
+      initCharts();
+      this.close();
+      showToast(`✅ ${name} actualizado`);
+    }
+  };
   // ========================================
   // ✏️ EDITAR PARTICIPANTE (placeholder)
   // ========================================
