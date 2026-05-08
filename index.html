@@ -58,6 +58,27 @@
           </div>
         </div>
       </div>
+      <div class="view" id="participants-view">
+        <h3>👥 Participantes</h3>
+        <div class="toolbar">
+          <input type="text" id="search-participant" placeholder="Buscar participante...">
+          <button id="add-participant" class="btn-primary" style="width:auto;padding:0.5rem 1rem;">+ Agregar</button>
+        </div>
+        <div id="participants-list" class="list-container"></div>
+      </div> 
+      <div class="view" id="payments-view">
+        <h3>💳 Historial de Pagos</h3>
+        <div class="toolbar">
+          <select id="payment-week">
+            <option value="all">Todas las semanas</option>
+            <option value="1">Semana 1</option>
+            <option value="2">Semana 2</option>
+            <option value="3">Semana 3</option>
+          </select>
+          <button id="mark-paid" class="btn-success">✅ Marcar como pagado</button>
+        </div>
+        <div id="payments-list" class="list-container"></div>
+      </div>      
     </main>
 
     <button id="show-menu-btn" class="fab-menu hidden" aria-label="Mostrar menú">☰</button>
