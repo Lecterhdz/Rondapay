@@ -1,10 +1,16 @@
 {
   "name": "RondaPay - Gestión de Tanda",
   "short_name": "RondaPay",
+  "description": "Organiza tus rondas de ahorro de forma simple y segura",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#f8fafc",
   "theme_color": "#4f46e5",
+  "theme_color_media": [
+    { "media": "(prefers-color-scheme: light)", "color": "#4f46e5" },
+    { "media": "(prefers-color-scheme: dark)", "color": "#0f172a" }
+  ],
+  "orientation": "portrait-primary",
   "icons": [
     {
       "src": "image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='24' fill='%234f46e5'/%3E%3Ctext x='96' y='120' font-size='80' text-anchor='middle' fill='white'%3E🤝%3C/text%3E%3C/svg%3E",
@@ -18,5 +24,8 @@
       "type": "image/svg+xml",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "categories": ["finance", "productivity"],
+  "lang": "es-MX",
+  "dir": "ltr"
 }
