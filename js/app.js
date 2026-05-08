@@ -635,31 +635,43 @@
   }
 
   // ========================================
-  // 🎛️ EVENT LISTENERS
+  // 🎛️ GESTOR DE EVENTOS - ACTUALIZADO
   // ========================================
   function setupEventListeners() {
-    // Login
+    // 🛡️ Prevenir duplicación de listeners (idempotente)
+    if (window.__rondapay_listeners_attached) return;
+    window.__rondapay_listeners_attached = true;
+
+    // ========================================
+    // 🔐 AUTENTICACIÓN
+    // ========================================
     el.loginBtn?.addEventListener('click', login);
     el.licenseInput?.addEventListener('keypress', e => {
       if (e.key === 'Enter') login();
     });
-    
-    // Tema
+
+    // ========================================
+    // 🎨 TEMA Y UI GLOBAL
+    // ========================================
     el.themeToggle?.addEventListener('click', toggleTheme);
-    
-    // Logout
     el.logoutBtn?.addEventListener('click', logout);
-    
-    // Menú hamburguesa
+
+    // ========================================
+    // 🍔 MENÚ HAMBURGUESA
+    // ========================================
     const toggleMenu = (open) => {
       el.menu?.classList.toggle('open', open);
       el.showMenu?.classList.toggle('hidden', open);
+      // Accesibilidad: focus trap cuando está abierto
+      if (open) {
+        el.hideMenu?.focus();
+      }
     };
-    
-    el.menuToggle?.addEventListener('click', () => toggleMenu(true));
+
+    el.menuToggle?.addEventListener('click', (e) => { e.stopPropagation(); toggleMenu(true); });
     el.hideMenu?.addEventListener('click', () => toggleMenu(false));
-    el.showMenu?.addEventListener('click', () => toggleMenu(true));
-    
+    el.showMenu?.addEventListener('click', (e) => { e.stopPropagation(); toggleMenu(true); });
+
     // Cerrar menú al hacer click fuera
     document.addEventListener('click', (e) => {
       if (el.menu?.classList.contains('open') && 
@@ -669,61 +681,317 @@
         toggleMenu(false);
       }
     });
-    
-    // Navegación entre vistas
-    document.querySelectorAll('[data-view]').forEach(link => {
-      link.addEventListener('click', e => {
-        e.preventDefault();
-        const view = e.currentTarget.dataset.view;
-        renderView(view);
+
+    // Cerrar menú con tecla Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && el.menu?.classList.contains('open')) {
         toggleMenu(false);
-      });
+        el.menuToggle?.focus();
+      }
     });
-    
-    // Admin back button
+
+    // ========================================
+    // 🧭 NAVEGACIÓN ENTRE VISTAS
+    // ========================================
+    function handleNavigation(viewName, e) {
+      e?.preventDefault();
+      
+      // Si estamos en el formulario de nueva tanda y hay cambios sin guardar, preguntar
+      if (state.currentView === 'new-tanda' && viewName !== 'new-tanda') {
+        const form = document.getElementById('form-new-tanda');
+        if (form && form.querySelector('input:not([value=""])')) {
+          // Simple check: si hay inputs con valor, preguntar (mejorar con dirty flag)
+          // Por ahora permitimos navegar sin warning para no complicar
+        }
+      }
+      
+      renderView(viewName);
+      toggleMenu(false);
+      
+      // Actualizar URL sin recargar (para deep linking)
+      if (viewName !== 'dashboard') {
+        window.history.pushState({ view: viewName }, '', `#${viewName}`);
+      } else {
+        window.history.pushState({ view: viewName }, '', window.location.pathname);
+      }
+    }
+
+    // Delegación de eventos para navegación dinámica
+    document.addEventListener('click', (e) => {
+      const navLink = e.target.closest('[data-view]');
+      if (navLink) {
+        handleNavigation(navLink.dataset.view, e);
+      }
+    });
+
+    // Soporte para navegación con teclas (accesibilidad)
+    document.addEventListener('keydown', (e) => {
+      // Alt + 1: Dashboard, Alt + 2: Participantes, etc.
+      if (e.altKey && e.key >= '1' && e.key <= '4') {
+        const views = ['dashboard', 'participants', 'payments', 'new-tanda'];
+        const index = parseInt(e.key) - 1;
+        if (views[index]) {
+          e.preventDefault();
+          renderView(views[index]);
+        }
+      }
+    });
+
+    // ========================================
+    // ⚙️ PANEL DE ADMINISTRACIÓN
+    // ========================================
     document.getElementById('admin-back')?.addEventListener('click', () => {
       window.history.replaceState({}, document.title, window.location.pathname);
       state.isAdmin = false;
       showApp();
       renderView('dashboard');
     });
-    
-    // Búsqueda de participantes
+
+    // ========================================
+    // 👥 VISTA: PARTICIPANTES
+    // ========================================
+    // Búsqueda en tiempo real con debounce
+    let searchTimeout;
     el.searchParticipant?.addEventListener('input', (e) => {
-      renderParticipants(e.target.value);
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        renderParticipants(e.target.value);
+      }, 300); // 300ms debounce para mejor performance
     });
-    
-    // Agregar participante (modal simple)
+
+    // Agregar participante: ahora usa el modal profesional
     el.addParticipantBtn?.addEventListener('click', () => {
-      const name = prompt('👤 Nombre del participante:');
-      if (name === null) return;
-      const phone = prompt('📱 Teléfono (10 dígitos):');
-      if (phone === null) return;
-      addParticipant(name, phone);
+      if (modal?.open) {
+        modal.open();
+      } else {
+        // Fallback si el modal no está disponible
+        const name = prompt('👤 Nombre del participante:');
+        if (name === null) return;
+        const phone = prompt('📱 Teléfono (10 dígitos):') || '';
+        addParticipant(name, phone);
+      }
     });
-    
-    // Filtro de pagos por semana
+
+    // Delegación para botones dinámicos en lista de participantes
+    document.getElementById('participants-list')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      
+      const id = parseInt(btn.dataset.id);
+      if (!id) return;
+
+      if (btn.classList.contains('mark-paid')) {
+        e.stopPropagation();
+        togglePayment(id);
+      } else if (btn.classList.contains('delete-participant')) {
+        e.stopPropagation();
+        deleteParticipant(id);
+      } else if (btn.classList.contains('edit-participant')) {
+        e.stopPropagation();
+        editParticipant(id);
+      }
+    });
+
+    // ========================================
+    // 💳 VISTA: PAGOS
+    // ========================================
     el.paymentWeek?.addEventListener('change', (e) => {
       renderPayments(e.target.value);
     });
-    
-    // Marcar pago masivo (admin feature)
+
     el.markPaidBtn?.addEventListener('click', () => {
       const week = el.paymentWeek?.value || 'all';
-      showToast(`🔧 Función "Marcar pagado" para semana ${week} - Próximamente`, 'info');
+      showToast(`🔧 Función "Marcar pagado masivo" para ${week} - Próximamente`, 'info');
     });
+
+    // ========================================
+    // 🆕 VISTA: NUEVA TANDA (FORMULARIO)
+    // ========================================
     
-    // PWA Install
-    el.installBtn?.addEventListener('click', async () => {
-      if (!state.deferredPrompt) return;
-      state.deferredPrompt.prompt();
-      const { outcome } = await state.deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        el.installBtn.classList.add('hidden');
-        showToast('🎉 RondaPay instalada exitosamente');
+    // Botón "Cancelar" en el formulario
+    document.querySelector('#form-new-tanda .btn-secondary[data-view]')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      // Resetear formulario antes de salir
+      if (newTandaForm?.el) {
+        newTandaForm.el.reset();
+        newTandaForm.tempParticipants = [];
+        newTandaForm.updatePreview?.();
       }
-      state.deferredPrompt = null;
+      renderView('dashboard');
     });
+
+    // Confirmar creación de tanda (modal)
+    document.getElementById('btn-confirm-create')?.addEventListener('click', () => {
+      if (newTandaForm?.createTanda) {
+        newTandaForm.createTanda();
+      }
+      // Cerrar modal
+      document.getElementById('modal-confirm-tanda')?.classList.add('hidden');
+    });
+
+    // Cerrar modal de confirmación
+    document.querySelectorAll('#modal-confirm-tanda .modal-close')?.forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.getElementById('modal-confirm-tanda')?.classList.add('hidden');
+      });
+    });
+
+    // Click fuera del modal de confirmación para cerrar
+    document.getElementById('modal-confirm-tanda')?.addEventListener('click', (e) => {
+      if (e.target.id === 'modal-confirm-tanda') {
+        e.currentTarget.classList.add('hidden');
+      }
+    });
+
+    // Templates predefinidos (si existen)
+    document.querySelectorAll('[data-template]')?.forEach(btn => {
+      btn.addEventListener('click', () => {
+        applyTandaTemplate(btn.dataset.template);
+      });
+    });
+
+    // ========================================
+    // 📱 PWA: INSTALACIÓN
+    // ========================================
+    el.installBtn?.addEventListener('click', async () => {
+      if (!state.deferredPrompt) {
+        showToast('📲 Tu navegador no soporta instalación o ya está instalada', 'info');
+        return;
+      }
+      
+      try {
+        state.deferredPrompt.prompt();
+        const { outcome } = await state.deferredPrompt.userChoice;
+        
+        if (outcome === 'accepted') {
+          el.installBtn?.classList.add('hidden');
+          showToast('🎉 RondaPay instalada exitosamente');
+          Analytics?.track('pwa_installed', { source: 'install_button' });
+        }
+      } catch (err) {
+        console.error('❌ Error instalando PWA:', err);
+        showToast('⚠️ Error al instalar. Intenta desde el menú del navegador', 'error');
+      } finally {
+        state.deferredPrompt = null;
+      }
+    });
+
+    // ========================================
+    // ⌨️ SHORTCUTS DE TECLADO (Accesibilidad)
+    // ========================================
+    document.addEventListener('keydown', (e) => {
+      // Ctrl + N: Nueva tanda (cuando no hay inputs focales)
+      if (e.ctrlKey && e.key.toLowerCase() === 'n' && 
+          !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
+        e.preventDefault();
+        renderView('new-tanda');
+        // Focus al primer input del formulario
+        setTimeout(() => document.getElementById('t-name')?.focus(), 100);
+      }
+      
+      // Ctrl + F: Buscar participante (en vista participantes)
+      if (e.ctrlKey && e.key.toLowerCase() === 'f' && 
+          state.currentView === 'participants') {
+        e.preventDefault();
+        el.searchParticipant?.focus();
+      }
+      
+      // Ctrl + T: Toggle tema
+      if (e.ctrlKey && e.key.toLowerCase() === 't') {
+        e.preventDefault();
+        toggleTheme();
+      }
+    });
+
+    // ========================================
+    // 🔄 HANDLER PARA NAVEGACIÓN CON HASH
+    // ========================================
+    window.addEventListener('hashchange', () => {
+      const hash = window.location.hash.replace('#', '');
+      const validViews = ['dashboard', 'participants', 'payments', 'new-tanda'];
+      
+      if (validViews.includes(hash)) {
+        renderView(hash);
+      }
+    });
+
+    // Inicializar navegación desde hash al cargar (si viene de deep link)
+    if (window.location.hash) {
+      const initialView = window.location.hash.replace('#', '');
+      if (['dashboard', 'participants', 'payments', 'new-tanda'].includes(initialView)) {
+        setTimeout(() => renderView(initialView), 100);
+      }
+    }
+
+    // ========================================
+    // 📊 ACTUALIZAR GRÁFICOS AL REDIMENSIONAR
+    // ========================================
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        // Re-renderizar gráficos solo si estamos en dashboard o admin
+        if (state.currentView === 'dashboard' || state.isAdmin) {
+          initCharts();
+        }
+      }, 250); // Debounce para performance
+    });
+
+    // ========================================
+    // 🎯 LOGGING PARA DESARROLLO
+    // ========================================
+    if (window.location.hostname === 'localhost') {
+      console.log('🎛️ Event listeners attached');
+      console.log('⌨️ Shortcuts: Ctrl+N (nueva tanda), Ctrl+F (buscar), Ctrl+T (tema)');
+    }
+  }
+
+  // ========================================
+  // 🎨 TEMPLATE: APLICAR PLANTILLA PREDEFINIDA
+  // ========================================
+  function applyTandaTemplate(templateName) {
+    const templates = {
+      office: { 
+        name: `Tanda Oficina ${new Date().getFullYear()}`, 
+        amount: 500, 
+        participants: 10, 
+        frequency: 'weekly',
+        currency: 'MXN'
+      },
+      family: { 
+        name: 'Ahorro Familiar', 
+        amount: 1000, 
+        participants: 5, 
+        frequency: 'monthly',
+        currency: 'MXN'
+      },
+      friends: { 
+        name: 'Ronda con Amigos', 
+        amount: 200, 
+        participants: 8, 
+        frequency: 'biweekly',
+        currency: 'MXN'
+      }
+    };
+
+    const t = templates[templateName];
+    if (!t || !newTandaForm?.fields) {
+      showToast('⚠️ Plantilla no disponible', 'warning');
+      return;
+    }
+
+    // Rellenar campos
+    if (newTandaForm.fields.name) newTandaForm.fields.name.value = t.name;
+    if (newTandaForm.fields.amount) newTandaForm.fields.amount.value = t.amount;
+    if (newTandaForm.fields.participants) newTandaForm.fields.participants.value = t.participants;
+    if (newTandaForm.fields.frequency) newTandaForm.fields.frequency.value = t.frequency;
+    if (newTandaForm.fields.currency) newTandaForm.fields.currency.value = t.currency;
+
+    // Actualizar preview
+    newTandaForm.updatePreview?.();
+    
+    showToast(`📋 Plantilla "${t.name}" aplicada`, 'success');
+    Analytics?.track('template_applied', { template: templateName });
   }
 
   // ========================================
