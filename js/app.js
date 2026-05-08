@@ -825,7 +825,11 @@
         setTimeout(() => renderView(hashView), 100);
       }
     }
-    
+    // ✅ Botón de exportar PDF (dentro de la vista de pagos)
+    const exportBtn = document.querySelector('#payments-view .btn-outline');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', exportPaymentsPDF);
+    }  
     // Teclado shortcuts
     document.addEventListener('keydown', e => {
       const isInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
@@ -1510,7 +1514,168 @@
     `;
     document.head.appendChild(style);
   }
-  
+  // ========================================
+  // 📤 EXPORTAR PAGOS A PDF
+  // ========================================
+  function exportPaymentsPDF() {
+    const t = getTanda();
+    if (!t) {
+      showToast('❌ No hay tanda para exportar', 'error');
+      return;
+    }
+    
+    // Verificar que jsPDF está cargado
+    if (typeof window.jspdf === 'undefined') {
+      showToast('⏳ Cargando generador de PDF...', 'info');
+      // Intentar cargar dinámicamente si no está disponible
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+      script.onload = () => {
+        script2 = document.createElement('script');
+        script2.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js';
+        script2.onload = () => setTimeout(() => exportPaymentsPDF(), 100);
+        document.head.appendChild(script2);
+      };
+      document.head.appendChild(script);
+      return;
+    }
+    
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const colors = { primary: [79, 70, 229], success: [16, 185, 129], warning: [245, 158, 11], danger: [239, 68, 68] };
+    
+    // 📄 Header con gradiente (simulado)
+    doc.setFillColor(...colors.primary);
+    doc.rect(0, 0, 297, 22, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('🤝 RondaPay - Reporte de Pagos', 14, 14);
+    
+    // 📋 Información de la tanda
+    doc.setTextColor(50, 50, 50);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    
+    const startDate = new Date(t.startDate);
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + ((t.totalWeeks || 5) * 7));
+    
+    const infoLines = [
+      `📌 Tanda: ${t.name || 'Sin nombre'}`,
+      `💰 Monto: ${formatCurrency(t.amount, t.currency)} • ${t.frequency === 'weekly' ? 'Semanal' : t.frequency === 'biweekly' ? 'Quincenal' : 'Mensual'}`,
+      `📅 Período: ${formatDate(startDate)} → ${formatDate(endDate)}`,
+      `👥 Participantes: ${t.participants?.length || 0} activos`,
+      `📊 Semana actual: ${t.currentWeek || 1} / ${t.totalWeeks || 5}`,
+      `🕒 Generado: ${new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+    ];
+    
+    infoLines.forEach((line, i) => {
+      doc.text(line, 14, 28 + (i * 5));
+    });
+    
+    // 📊 Resumen financiero
+    const activeParticipants = (t.participants || []).filter(p => p.status !== 'inactive');
+    const totalExpected = activeParticipants.length * (t.totalWeeks || 5) * (t.amount || 0);
+    const totalCollected = activeParticipants.reduce((sum, p) => sum + ((p.paidWeeks?.length || 0) * (t.amount || 0)), 0);
+    const percentage = totalExpected > 0 ? Math.round((totalCollected / totalExpected) * 100) : 0;
+    
+    doc.setFillColor(245, 245, 245);
+    doc.rect(14, 58, 82, 22, 'F');
+    doc.setFontSize(8);
+    doc.setTextColor(30, 30, 30);
+    doc.text(`💰 Total recaudado: ${formatCurrency(totalCollected, t.currency)}`, 18, 66);
+    doc.text(`🎯 Meta total: ${formatCurrency(totalExpected, t.currency)}`, 18, 73);
+    doc.text(`📈 Cumplimiento: ${percentage}%`, 18, 80);
+    
+    // 📋 Tabla de pagos por participante
+    const weeks = Array.from({ length: t.totalWeeks || 5 }, (_, i) => `S${i + 1}`);
+    const body = activeParticipants.map(p => {
+      const paidWeeks = Array.isArray(p.paidWeeks) ? p.paidWeeks : [];
+      const cells = weeks.map((_, i) => {
+        const weekNum = i + 1;
+        const isPaid = paidWeeks.includes(weekNum);
+        const isLate = weekNum < (t.currentWeek || 1) && !isPaid;
+        return isPaid ? '✅' : (isLate ? '❌' : '⏳');
+      });
+      const totalPaid = paidWeeks.length * (t.amount || 0);
+      return [`${p.name} (Turno #${p.nextTurn})`, ...cells, formatCurrency(totalPaid, t.currency)];
+    });
+    
+    // Configurar autoTable
+    if (typeof doc.autoTable === 'function') {
+      doc.autoTable({
+        startY: 90,
+        head: [['Participante', ...weeks, 'Total']],
+        body: body,
+        theme: 'grid',
+        styles: { fontSize: 7, cellPadding: 2.5, overflow: 'linebreak', halign: 'center', valign: 'middle' },
+        headStyles: { fillColor: colors.primary, textColor: 255, fontStyle: 'bold', halign: 'center' },
+        columnStyles: {
+          0: { halign: 'left', cellWidth: 40 },
+          [weeks.length + 1]: { halign: 'right', cellWidth: 25 }
+        },
+        didParseCell: (data) => {
+          if (data.section === 'body' && data.column.index > 0 && data.column.index < weeks.length + 1) {
+            const value = data.cell.text[0];
+            if (value === '✅') data.cell.styles.textColor = colors.success;
+            else if (value === '❌') data.cell.styles.textColor = colors.danger;
+            else if (value === '⏳') data.cell.styles.textColor = colors.warning;
+          }
+        }
+      });
+      
+      // 📊 Resumen por semana (tabla adicional)
+      const weeklySummary = weeks.map((_, i) => {
+        const weekNum = i + 1;
+        const paidCount = activeParticipants.filter(p => (p.paidWeeks || []).includes(weekNum)).length;
+        const amountCollected = paidCount * (t.amount || 0);
+        return [`Semana ${weekNum}`, `${paidCount}/${activeParticipants.length}`, formatCurrency(amountCollected, t.currency)];
+      });
+      
+      const finalY = doc.lastAutoTable.finalY + 5;
+      if (finalY < 200) {
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(colors.primary);
+        doc.text('📊 Resumen por semana', 14, finalY);
+        
+        doc.autoTable({
+          startY: finalY + 5,
+          head: [['Semana', 'Pagos', 'Recaudado']],
+          body: weeklySummary,
+          theme: 'striped',
+          styles: { fontSize: 8, cellPadding: 3 },
+          headStyles: { fillColor: colors.primary, textColor: 255, fontStyle: 'bold' },
+          columnStyles: {
+            0: { cellWidth: 40 },
+            1: { cellWidth: 30, halign: 'center' },
+            2: { cellWidth: 40, halign: 'right' }
+          }
+        });
+      }
+    } else {
+      // Fallback si autoTable no está disponible
+      doc.setFontSize(10);
+      doc.text('⚠️ Tabla detallada no disponible - instala jspdf-autotable', 14, 100);
+    }
+    
+    // 🦶 Footer
+    const lastY = typeof doc.lastAutoTable !== 'undefined' && doc.lastAutoTable.finalY 
+      ? doc.lastAutoTable.finalY + 12 
+      : 120;
+    
+    doc.setFontSize(7);
+    doc.setTextColor(120, 120, 120);
+    doc.setFont('helvetica', 'italic');
+    doc.text('Reporte generado por RondaPay - Gestión de tandas', 14, lastY);
+    doc.text('lecterhdz.github.io/Rondapay', 14, lastY + 5);
+    
+    // 💾 Descargar
+    const fileName = `RondaPay_${(t.name || 'reporte').replace(/[^a-z0-9ñáéíóú]/gi, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(fileName);
+    showToast('📄 PDF exportado exitosamente', 'success');
+  }  
   // ========================================
   // INICIALIZACIÓN
   // ========================================
