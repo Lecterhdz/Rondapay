@@ -653,6 +653,22 @@
     el.addParticipantBtn?.addEventListener('click',()=>{if(modal?.open)modal.open();else{const n=prompt('👤 Nombre del participante:');if(n===null)return;const ph=prompt('📱 Teléfono (10 dígitos):')||'';addParticipant(n,ph);}});
     el.participantsList?.addEventListener('click',e=>{const b=e.target.closest('button.icon-btn');if(!b)return;e.stopPropagation();const id=parseInt(b.dataset.id);if(!id||isNaN(id))return;if(b.classList.contains('mark-paid'))togglePayment(id);else if(b.classList.contains('edit-participant')){const t=getTanda(),p=t.participants.find(x=>x.id===id);if(p)editParticipantModal?.open?.(p);}else if(b.classList.contains('delete-participant'))deleteParticipant(id);});
     el.participantsList?.addEventListener('click',e=>{const it=e.target.closest('.list-item');if(!it)return;if(e.target.closest('button'))return;const id=parseInt(it.dataset.id);if(id)showParticipantDetails(id);});
+    // 🎯 Delegación para botón "Agregar primero" en estado vacío
+    el.participantsList?.addEventListener('click', (e) => {
+      const addFirstBtn = e.target.closest('[data-action="add-first"]');
+      if (addFirstBtn) {
+        e.stopPropagation();
+        if (modal?.open) {
+          modal.open();
+        } else {
+          // Fallback si modal no está disponible
+          const name = prompt('👤 Nombre del participante:');
+          if (name === null) return;
+          const phone = prompt('📱 Teléfono (10 dígitos):') || '';
+          addParticipant(name, phone);
+        }
+      }
+    });    
     el.paymentWeek?.addEventListener('change',e=>renderPayments(e.target.value));
     el.markPaidBtn?.addEventListener('click',()=>{const w=el.paymentWeek?.value||'all';showToast(`🔧 Función "Marcar pagado masivo" para ${w} - Próximamente`,'info');});
 
