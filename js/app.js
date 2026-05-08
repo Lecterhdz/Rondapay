@@ -31,9 +31,49 @@
     appTitle: document.getElementById('app-title'),
     pageTitle: document.getElementById('page-title')
   };
+  // ========================================
+  // 📦 CAPA DE DATOS - PEGAR AQUÍ
+  // ========================================
+  const Storage = {
+    get(key) { 
+      try { 
+        return JSON.parse(localStorage.getItem(key)) || null; 
+      } catch { 
+        return null; 
+      } 
+    },
+    set(key, val) { 
+      localStorage.setItem(key, JSON.stringify(val)); 
+    },
+    clear() { 
+      Object.keys(localStorage).forEach(k => {
+        if (k.startsWith('rondapay_')) localStorage.removeItem(k);
+      }); 
+    }
+  };
 
+  function initDefaultData() {
+    if (!Storage.get('rondapay_tanda')) {
+      Storage.set('rondapay_tanda', {
+        name: 'Ronda #1',
+        amount: 1000,
+        frequency: 'semanal',
+        startDate: new Date().toISOString().split('T')[0],
+        participants: [
+          { id: 1, name: 'Ana López', phone: '5551234567', status: 'active', paidWeeks: [1,2], nextTurn: 3 },
+          { id: 2, name: 'Carlos Ruiz', phone: '5557654321', status: 'active', paidWeeks: [1], nextTurn: 4 },
+          { id: 3, name: 'María Díaz', phone: '5559876543', status: 'pending', paidWeeks: [], nextTurn: 5 }
+        ]
+      });
+    }
+  }
+  // ========================================
+  // FIN CAPA DE DATOS
+  // ========================================
+  
   // Inicialización
   document.addEventListener('DOMContentLoaded', () => {
+    initDefaultData(); 
     initTheme();
     checkSession();
     checkAdminAccess();
@@ -196,7 +236,7 @@ function setupEventListeners() {
   // PWA
   function registerSW() {
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(console.error);
+      navigator.serviceWorker.register('./sw.js').catch(console.error);
     }
   }
 
