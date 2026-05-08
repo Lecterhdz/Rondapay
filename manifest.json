@@ -1,7 +1,7 @@
 {
   "name": "RondaPay - Gestión de Tanda",
   "short_name": "RondaPay",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#f8fafc",
   "theme_color": "#4f46e5",
