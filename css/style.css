@@ -117,31 +117,68 @@ main { flex: 1; padding: 1rem; overflow-y: auto; contain: content; }
 .participant-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--border); padding: 6px 12px; border-radius: 20px; font-size: 0.85rem; } .participant-chip .remove { background: none; border: none; color: var(--danger); cursor: pointer; font-size: 1rem; padding: 0; line-height: 1; border-radius: 50%; } .participant-chip .remove:hover { background: rgba(239,68,68,0.1); }
 
 /* =========================================
-   9. MATRIX DE PAGOS (OPTIMIZADA)
+   9. MATRIX DE PAGOS (LAYOUT OPTIMIZADO)
    ========================================= */
-.matrix-container { background: var(--surface); border-radius: 16px; box-shadow: var(--shadow); margin-top: 16px; overflow-x: auto; scrollbar-width: thin; }
-.matrix-header, .matrix-footer { display: flex; flex-shrink: 0; background: var(--border); font-size: 0.85rem; font-weight: 600; }
-.matrix-header > div, .matrix-footer > div { background: var(--surface); padding: 12px; text-align: center; border-right: 1px solid var(--border); }
-.participant-col { width: 140px; text-align: left; position: sticky; left: 0; z-index: 5; background: var(--surface); border-right: 2px solid var(--border); }
-.summary-col { width: 70px; text-align: center; position: sticky; right: 0; z-index: 5; background: var(--surface); border-left: 2px solid var(--border); }
-.weeks-grid { display: flex; flex: 1; overflow-x: visible; }
-.week-cell, .payment-cell { min-width: 50px; flex-shrink: 0; }
-.week-cell { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; font-size: 0.75rem; } .week-cell .week-num { font-weight: 600; }
-.matrix-body { max-height: 400px; overflow-y: auto; contain: layout style paint; content-visibility: auto; contain-intrinsic-size: 1px 400px; }
-.matrix-row { display: flex; flex-shrink: 0; background: var(--border); border-top: 1px solid var(--border); }
-.matrix-row > div { background: var(--surface); padding: 12px; display: flex; align-items: center; border-right: 1px solid var(--border); }
-.participant-cell { width: 140px; position: sticky; left: 0; z-index: 4; background: var(--surface); border-right: 2px solid var(--border); }
-.participant-info small { display: block; font-size: 0.75rem; color: var(--text-secondary); font-weight: 400; margin-top: 4px; }
-.summary-cell { width: 70px; text-align: center; position: sticky; right: 0; z-index: 4; background: var(--surface); border-left: 2px solid var(--border); font-weight: 600; }
-.payment-cell { display: flex; justify-content: center; align-items: center; cursor: pointer; transition: background 0.15s; } .payment-cell:hover { background: rgba(79,70,229,0.05); } .payment-cell:active { transform: scale(0.95); }
+.matrix-container { 
+  background: var(--surface); 
+  border-radius: 16px; 
+  box-shadow: var(--shadow); 
+  margin-top: 16px; 
+  overflow-x: auto; 
+  scrollbar-width: thin; 
+}
+
+/* Usamos flex en todo para alineación pixel-perfect */
+.matrix-header, .matrix-footer, .matrix-row { 
+  display: flex; 
+  min-width: max-content; /* Evita que se aplaste en móvil, permite scroll */
+}
+
+/* 📏 Columnas Fijas (Ancho idéntico en header, cuerpo y footer) */
+.participant-col, .participant-cell { 
+  width: 140px; flex-shrink: 0; background: var(--surface); padding: 12px; 
+  position: sticky; left: 0; z-index: 5; border-right: 2px solid var(--border); 
+}
+.summary-col, .summary-cell { 
+  width: 80px; flex-shrink: 0; background: var(--surface); padding: 12px; 
+  position: sticky; right: 0; z-index: 5; border-left: 2px solid var(--border); 
+  text-align: center; font-weight: 600; 
+}
+
+/* 📅 Columnas de Semanas (Se estiran equitativamente para llenar el espacio) */
+.weeks-grid { display: flex; flex: 1; min-width: 0; }
+.week-cell, .payment-cell, .week-total {
+  flex: 1; 
+  min-width: 45px; /* Límite mínimo para no volverse ilegible */
+  padding: 10px 6px; 
+  display: flex; flex-direction: column; align-items: center; justify-content: center; 
+  background: var(--surface); border-right: 1px solid var(--border); 
+}
+.week-cell .week-num { font-weight: 600; }
+.week-cell .week-date { font-size: 0.7rem; color: var(--text-secondary); }
+.week-cell small { font-size: 0.65rem; color: var(--success); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+
+.matrix-body { max-height: 400px; overflow-y: auto; contain: layout style paint; }
+.matrix-row { border-top: 1px solid var(--border); }
+.matrix-row > div { display: flex; align-items: center; }
+.participant-info small { display: block; font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px; }
+
+/* 💰 Totales (Footer alineado perfectamente con el header) */
+.week-total { padding-top: 12px; font-weight: 600; }
+
+/* 🎯 Celdas de pago & Estados */
+.payment-cell { cursor: pointer; transition: background 0.15s; justify-content: center; } 
+.payment-cell:hover { background: rgba(79,70,229,0.05); } 
+.payment-cell:active { transform: scale(0.95); }
 .payment-status { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 600; will-change: transform, opacity; backface-visibility: hidden; }
-.payment-status.paid { background: var(--success); color: #fff; } .payment-status.pending { background: var(--warning); color: #fff; } .payment-status.late { background: var(--danger); color: #fff; } .payment-status.received { box-shadow: 0 0 0 2px var(--primary); }
+.payment-status.paid { background: var(--success); color: #fff; } 
+.payment-status.pending { background: var(--warning); color: #fff; } 
+.payment-status.late { background: var(--danger); color: #fff; } 
+.payment-status.received { box-shadow: 0 0 0 2px var(--primary); }
+
 .highlight-row { background: rgba(16,185,129,0.05); }
-
-/* Filtros & Focus Mode */
-.focus-week { background: rgba(79,70,229,0.12) !important; box-shadow: inset 0 0 0 1px rgba(79,70,229,0.3); } .week-cell.focus-week .week-num { color: var(--primary); font-weight: 700; }
+.focus-week { background: rgba(79,70,229,0.12) !important; } 
 .matrix-container.filtered { box-shadow: 0 0 0 2px var(--primary), var(--shadow); }
-
 /* =========================================
    10. RESPONSIVE & TEMA OSCURO
    ========================================= */
