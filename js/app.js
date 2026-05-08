@@ -341,7 +341,7 @@
   function showAdmin(){hideAllScreens();el.adminPanel?.classList.add('active');el.appTitle.textContent='Admin | RondaPay';}
   function hideAllScreens(){[el.loginScreen,el.mainApp,el.adminPanel].forEach(s=>s?.classList.remove('active'));}
   function logout(){sessionStorage.removeItem(CONFIG.SESSION_KEY);showToast('👋 Sesión cerrada');setTimeout(showLogin,500);}
-  function checkAdminAccess(){const p=new URLSearchParams(window.location.search);if(p.get('admin")==='true'){const pass=prompt('🔐 Clave de administrador:');if(pass===CONFIG.ADMIN_PASSWORD){state.isAdmin=true;showAdmin();initAdminCharts();window.history.replaceState({},document.title,window.location.pathname);}else if(pass!==null)alert('❌ Acceso denegado');}}
+  function checkAdminAccess(){const p=new URLSearchParams(window.location.search);if(p.get('admin')==='true'){const pass=prompt('🔐 Clave de administrador:');if(pass===CONFIG.ADMIN_PASSWORD){state.isAdmin=true;showAdmin();initAdminCharts();window.history.replaceState({},document.title,window.location.pathname);}else if(pass!==null)alert('❌ Acceso denegado');}}
 
   // ========================================
   // 📱 PWA
