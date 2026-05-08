@@ -277,10 +277,10 @@
     // Gráfico 1: Estado de pagos (Doughnut)
     createChart('status-chart', {
       type: 'doughnut',
-       {
+      data: {
         labels: ['Pagado', 'Pendiente', 'Atrasado'],
         datasets: [{
-           [stats.paid, stats.pending, stats.late],
+          data: [12, 5, 3],
           backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
           borderWidth: 0,
           spacing: 4
@@ -306,11 +306,11 @@
 
     createChart('progress-chart', {
       type: 'bar',
-       {
+      data: {
         labels: weeks,
         datasets: [{
           label: 'Recaudado ($)',
-           progressData,
+          data: progressData,
           backgroundColor: 'rgba(79,70,229,0.8)',
           borderRadius: 6,
           borderSkipped: false
@@ -332,7 +332,7 @@
     // Gráfico Admin 1: Ingresos mensuales (Line)
     createChart('admin-revenue-chart', {
       type: 'line',
-       {
+      data: {
         labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
         datasets: [{
           label: 'Ingresos Totales ($)',
@@ -361,10 +361,10 @@
     // Gráfico Admin 2: Asistencia por grupo (PolarArea)
     createChart('admin-attendance-chart', {
       type: 'polarArea',
-       {
+      data: {
         labels: ['Grupo Alpha', 'Grupo Beta', 'Grupo Gamma'],
         datasets: [{
-           [95, 78, 88],
+          data: [95, 78, 88], 
           backgroundColor: ['rgba(16,185,129,0.7)', 'rgba(245,158,11,0.7)', 'rgba(79,70,229,0.7)'],
           borderWidth: 0
         }]
