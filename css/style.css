@@ -153,3 +153,16 @@ main { flex: 1; padding: 1rem; overflow-y: auto; }
   .charts-grid { grid-template-columns: 1fr; }
   .hamburger { width: 100%; }
 }
+.toolbar { display:flex; gap:0.5rem; margin:1rem 0; flex-wrap:wrap; }
+.toolbar input, .toolbar select { flex:1; padding:0.5rem; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text); }
+.list-container { display:flex; flex-direction:column; gap:0.5rem; }
+.list-item { background:var(--surface); padding:1rem; border-radius:10px; box-shadow:var(--shadow); display:flex; justify-content:space-between; align-items:center; }
+.list-item .info h4 { margin:0; font-size:0.95rem; }
+.list-item .info p { margin:0.2rem 0 0; font-size:0.8rem; color:var(--text-secondary); }
+.status { padding:0.2rem 0.5rem; border-radius:20px; font-size:0.75rem; font-weight:500; }
+.status.active { background:rgba(16,185,129,0.15); color:var(--success); }
+.status.pending { background:rgba(245,158,11,0.15); color:var(--warning); }
+.status.paid { background:rgba(79,70,229,0.15); color:var(--primary); }
+.btn-success { background:var(--success); color:white; border:none; padding:0.5rem 1rem; border-radius:8px; cursor:pointer; }
+.active-link a { background:var(--border); }
+.empty-state { text-align:center; padding:2rem; color:var(--text-secondary); }
