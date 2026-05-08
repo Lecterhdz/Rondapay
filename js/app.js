@@ -637,107 +637,74 @@
     const t = getTanda();
     if (!t) { showToast('❌ No hay tanda para exportar', 'error'); return; }
     
-    // Verificar que jsPDF esté cargado
     if (typeof window.jspdf === 'undefined') {
-      showToast('⏳ Cargando librería de PDF...', 'info');
-      setTimeout(exportPaymentsPDF, 1500);
+      showToast('⏳ Cargando generador de PDF...', 'info');
+      setTimeout(exportPaymentsPDF, 1000);
       return;
     }
     
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-    
-    // 🎨 Estilos y configuración
-    const primary = [79, 70, 229]; // #4f46e5 en RGB
-    const success = [16, 185, 129]; // #10b981
-    const warning = [245, 158, 11]; // #f59e0b
-    const danger = [239, 68, 68]; // #ef4444
+    const [p, s, w, d] = [[79,70,229], [16,185,129], [245,158,11], [239,68,68]];
     
     // 📄 Header
-    doc.setFillColor(...primary);
-    doc.rect(0, 0, 297, 25, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text('🤝 RondaPay - Reporte de Tanda', 14, 16);
+    doc.setFillColor(...p); doc.rect(0,0,297,22,'F');
+    doc.setTextColor(255,255,255); doc.setFontSize(14); doc.setFont('helvetica','bold');
+    doc.text('🤝 RondaPay - Reporte de Tanda', 14, 14);
     
-    // 📋 Info de la tanda
-    doc.setTextColor(50, 50, 50);
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
+    // 📋 Info
+    doc.setTextColor(50,50,50); doc.setFontSize(9); doc.setFont('helvetica','normal');
     const info = [
       `Tanda: ${t.name || 'Sin nombre'}`,
-      `Monto: ${formatCurrency(t.amount, t.currency)}`,
-      `Frecuencia: ${t.frequency === 'weekly' ? 'Semanal' : t.frequency === 'biweekly' ? 'Quincenal' : 'Mensual'}`,
-      `Período: ${formatDate(t.startDate)} - ${formatDate(addDays(t.startDate, (t.totalWeeks||10)*7))}`,
-      `Semana actual: ${t.currentWeek || 1}`
+      `Monto: ${formatCurrency(t.amount, t.currency)} • ${t.frequency==='weekly'?'Semanal':t.frequency==='biweekly'?'Quincenal':'Mensual'}`,
+      `Período: ${formatDate(t.startDate)} al ${formatDate(addDays(t.startDate,(t.totalWeeks||5)*7))}`,
+      `Generado: ${new Date().toLocaleDateString('es-MX', {day:'2-digit',month:'short',year:'numeric'})}`
     ];
-    info.forEach((line, i) => doc.text(line, 14, 32 + (i * 5)));
+    info.forEach((l,i) => doc.text(l, 14, 28 + i*5));
     
-    // 📊 Resumen rápido
-    const active = (t.participants || []).filter(p => p.status !== 'inactive');
-    const totalExpected = active.length * (t.totalWeeks || 10) * (t.amount || 0);
-    const totalCollected = active.reduce((s, p) => s + ((p.paidWeeks?.length || 0) * (t.amount || 0)), 0);
-    const percent = totalExpected > 0 ? Math.round((totalCollected / totalExpected) * 100) : 0;
+    // 📊 Resumen
+    const act = (t.participants||[]).filter(p=>p.status!=='inactive');
+    const exp = act.length*(t.totalWeeks||5)*(t.amount||0);
+    const col = act.reduce((s,p)=>s+((p.paidWeeks?.length||0)*(t.amount||0)),0);
+    const pct = exp>0 ? Math.round((col/exp)*100) : 0;
     
-    doc.setFillColor(240, 240, 240);
-    doc.rect(14, 45, 80, 15, 'F');
-    doc.setTextColor(30, 30, 30);
-    doc.setFontSize(9);
-    doc.text(`💰 Recaudado: ${formatCurrency(totalCollected, t.currency)}`, 18, 53);
-    doc.text(`📈 Progreso: ${percent}%`, 18, 58);
+    doc.setFillColor(245,245,245); doc.rect(14,50,70,12,'F');
+    doc.setTextColor(30,30,30); doc.setFontSize(8);
+    doc.text(`💰 Recaudado: ${formatCurrency(col,t.currency)} (${pct}%)`, 18, 58);
     
-    // 📋 Tabla de participantes
-    const tableData = active.map(p => {
-      const paidWeeks = Array.isArray(p.paidWeeks) ? p.paidWeeks : [];
-      const weekCells = Array.from({ length: t.totalWeeks || 5 }, (_, i) => {
-        const w = i + 1;
-        return paidWeeks.includes(w) ? '✅' : (w < (t.currentWeek||1) ? '❌' : '⏳');
+    // 📋 Tabla
+    const weeks = Array.from({length:t.totalWeeks||5},(_,i)=>`S${i+1}`);
+    const body = act.map(p => {
+      const pw = Array.isArray(p.paidWeeks)?p.paidWeeks:[];
+      const cells = weeks.map((_,i)=>{
+        const w=i+1; return pw.includes(w)?'✅':w<(t.currentWeek||1)?'❌':'⏳';
       });
-      const total = paidWeeks.length * (t.amount || 0);
-      return [
-        `${p.name || 'Sin nombre'} #${p.nextTurn || '?'}`,
-        ...weekCells,
-        formatCurrency(total, t.currency)
-      ];
+      return [`${p.name} #${p.nextTurn}`, ...cells, formatCurrency(pw.length*(t.amount||0),t.currency)];
     });
     
-    const headers = ['Participante', ...Array.from({ length: t.totalWeeks || 5 }, (_, i) => `S${i+1}`), 'Total'];
-    
     doc.autoTable({
-      startY: 68,
-      head: [headers],
-      body: tableData,
-      theme: 'grid',
-      styles: { fontSize: 8, cellPadding: 3, overflow: 'linebreak' },
-      headStyles: { fillColor: primary, textColor: 255, fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [250, 250, 250] },
-      columnStyles: {
-        0: { cellWidth: 40, fontStyle: 'bold' },
-        [headers.length - 1]: { cellWidth: 25, fontStyle: 'bold', halign: 'right' }
-      },
+      startY: 68, head: [['Participante', ...weeks, 'Total']], body,
+      theme:'grid', styles:{fontSize:7,cellPadding:2.5,overflow:'linebreak',halign:'center'},
+      headStyles:{fillColor:p,textColor:255,fontStyle:'bold'},
+      columnStyles:{0:{halign:'left',cellWidth:35},[weeks.length+1]:{halign:'right',cellWidth:20}},
       didParseCell: (data) => {
-        // Colorear celdas de estado
-        if (data.section === 'body' && data.column.index > 0 && data.column.index < headers.length - 1) {
-          const text = data.cell.text[0];
-          if (text === '✅') data.cell.styles.textColor = success;
-          else if (text === '❌') data.cell.styles.textColor = danger;
-          else data.cell.styles.textColor = warning;
+        if(data.section==='body' && data.column.index>0 && data.column.index<weeks.length+1){
+          const v=data.cell.text[0];
+          if(v==='✅') data.cell.styles.textColor=s;
+          else if(v==='❌') data.cell.styles.textColor=d;
+          else data.cell.styles.textColor=w;
         }
       }
     });
     
     // 🦶 Footer
-    const finalY = doc.lastAutoTable.finalY + 10;
-    doc.setFontSize(8);
-    doc.setTextColor(100, 100, 100);
-    doc.text(`Generado con RondaPay • ${new Date().toLocaleDateString('es-MX')}`, 14, finalY);
-    doc.text('lecterhdz.github.io/Rondapay', 14, finalY + 4);
+    const fy = doc.lastAutoTable.finalY+8;
+    doc.setFontSize(7); doc.setTextColor(120,120,120);
+    doc.text('lecterhdz.github.io/Rondapay', 14, fy);
     
     // 💾 Descargar
-    const fileName = `RondaPay_${(t.name || 'reporte').replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
-    doc.save(fileName);
-    
+    const fn = `RondaPay_${(t.name||'reporte').replace(/[^a-z0-9ñáéíóú]/gi,'_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(fn);
     showToast('📄 PDF exportado exitosamente', 'success');
   }
   // ========================================
