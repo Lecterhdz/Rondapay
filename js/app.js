@@ -18,7 +18,7 @@
     deferredPrompt: null,
     currentView: 'dashboard',
     newTandaDraft: null,
-    saveTimeout: null  // Para debounce
+    saveTimeout: null
   };
 
   // 📊 Registro de gráficos
@@ -58,7 +58,7 @@
   const MultiTanda = {
     KEY_LIST: 'rondapay_list',
     KEY_PREFIX: 'rondapay_tanda_',
-    _cache: new Map(), // Caché en memoria
+    _cache: new Map(),
     
     getList() {
       try {
@@ -141,7 +141,7 @@
   }
 
   // ========================================
-  // 🎨 UTILIDADES UI (Performance optimizado)
+  // 🎨 UTILIDADES UI
   // ========================================
   const HTML_ESCAPE_MAP = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'};
   const escapeHtml = (t) => t ? t.replace(/[&<>"']/g, c => HTML_ESCAPE_MAP[c]) : '';
@@ -191,6 +191,26 @@
       return '---';
     }
   };
+  
+  function calculateTandaPreview(amount, participants, frequency, startDate) {
+    const freqDays = { weekly: 7, biweekly: 15, monthly: 30 };
+    const totalWeeks = participants;
+    const totalDays = freqDays[frequency] * totalWeeks;
+    
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + totalDays);
+    
+    const nextDate = new Date(startDate);
+    nextDate.setDate(nextDate.getDate() + freqDays[frequency]);
+    
+    return {
+      duration: `${totalWeeks} ${frequency === 'weekly' ? 'semanas' : frequency === 'biweekly' ? 'quincenas' : 'meses'}`,
+      weekly: amount * participants,
+      total: amount * participants * totalWeeks,
+      endDate: formatDate(endDate),
+      nextDate: formatDate(nextDate)
+    };
+  }
   
   function showToast(msg, type = 'success') {
     const toast = document.createElement('div');
@@ -261,7 +281,6 @@
     const weeks = Array.from({ length: Math.min(t.currentWeek, 6) }, (_, i) => `Sem ${i+1}`);
     const pd = weeks.map((_, i) => t.participants.filter(p => p.paidWeeks.includes(i+1)).length * t.amount);
     
-    // Poblar filtro
     const filter = document.getElementById('payment-week');
     if (filter) {
       const current = filter.value;
@@ -297,9 +316,205 @@
       }
     });
   }
+  
+  function initAdminCharts() {
+    createChart('admin-revenue-chart', {
+      type: 'line',
+      data: {
+        labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
+        datasets: [{
+          label: 'Ingresos Totales ($)',
+          data: [1200, 1900, 2400, 3100, 2800, 4200],
+          borderColor: '#4f46e5',
+          backgroundColor: 'rgba(79,70,229,0.1)',
+          tension: 0.4,
+          fill: true,
+          pointBackgroundColor: '#fff',
+          pointBorderColor: '#4f46e5',
+          pointBorderWidth: 2,
+          pointRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom' } },
+        scales: {
+          y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
+          x: { grid: { display: false } }
+        }
+      }
+    });
+    
+    createChart('admin-attendance-chart', {
+      type: 'polarArea',
+      data: {
+        labels: ['Grupo Alpha', 'Grupo Beta', 'Grupo Gamma'],
+        datasets: [{
+          data: [95, 78, 88],
+          backgroundColor: ['rgba(16,185,129,0.7)', 'rgba(245,158,11,0.7)', 'rgba(79,70,229,0.7)'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom' } }
+      }
+    });
+  }
 
   // ========================================
-  // 👥 PARTICIPANTES (CORREGIDO)
+  // 📤 EXPORTAR PAGOS A PDF
+  // ========================================
+  function exportPaymentsPDF() {
+    const t = getTanda();
+    if (!t) {
+      showToast('❌ No hay tanda para exportar', 'error');
+      return;
+    }
+    
+    if (typeof window.jspdf === 'undefined') {
+      showToast('⏳ Cargando generador de PDF...', 'info');
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+      script.onload = () => {
+        const script2 = document.createElement('script');
+        script2.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js';
+        script2.onload = () => setTimeout(() => exportPaymentsPDF(), 100);
+        document.head.appendChild(script2);
+      };
+      document.head.appendChild(script);
+      return;
+    }
+    
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const colors = { primary: [79, 70, 229], success: [16, 185, 129], warning: [245, 158, 11], danger: [239, 68, 68] };
+    
+    doc.setFillColor(...colors.primary);
+    doc.rect(0, 0, 297, 22, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('🤝 RondaPay - Reporte de Pagos', 14, 14);
+    
+    doc.setTextColor(50, 50, 50);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    
+    const startDate = new Date(t.startDate);
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + ((t.totalWeeks || 5) * 7));
+    
+    const infoLines = [
+      `📌 Tanda: ${t.name || 'Sin nombre'}`,
+      `💰 Monto: ${formatCurrency(t.amount, t.currency)} • ${t.frequency === 'weekly' ? 'Semanal' : t.frequency === 'biweekly' ? 'Quincenal' : 'Mensual'}`,
+      `📅 Período: ${formatDate(startDate)} → ${formatDate(endDate)}`,
+      `👥 Participantes: ${t.participants?.length || 0} activos`,
+      `📊 Semana actual: ${t.currentWeek || 1} / ${t.totalWeeks || 5}`,
+      `🕒 Generado: ${new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+    ];
+    
+    infoLines.forEach((line, i) => {
+      doc.text(line, 14, 28 + (i * 5));
+    });
+    
+    const activeParticipants = (t.participants || []).filter(p => p.status !== 'inactive');
+    const totalExpected = activeParticipants.length * (t.totalWeeks || 5) * (t.amount || 0);
+    const totalCollected = activeParticipants.reduce((sum, p) => sum + ((p.paidWeeks?.length || 0) * (t.amount || 0)), 0);
+    const percentage = totalExpected > 0 ? Math.round((totalCollected / totalExpected) * 100) : 0;
+    
+    doc.setFillColor(245, 245, 245);
+    doc.rect(14, 58, 82, 22, 'F');
+    doc.setFontSize(8);
+    doc.setTextColor(30, 30, 30);
+    doc.text(`💰 Total recaudado: ${formatCurrency(totalCollected, t.currency)}`, 18, 66);
+    doc.text(`🎯 Meta total: ${formatCurrency(totalExpected, t.currency)}`, 18, 73);
+    doc.text(`📈 Cumplimiento: ${percentage}%`, 18, 80);
+    
+    const weeks = Array.from({ length: t.totalWeeks || 5 }, (_, i) => `S${i + 1}`);
+    const body = activeParticipants.map(p => {
+      const paidWeeks = Array.isArray(p.paidWeeks) ? p.paidWeeks : [];
+      const cells = weeks.map((_, i) => {
+        const weekNum = i + 1;
+        const isPaid = paidWeeks.includes(weekNum);
+        const isLate = weekNum < (t.currentWeek || 1) && !isPaid;
+        return isPaid ? '✅' : (isLate ? '❌' : '⏳');
+      });
+      const totalPaid = paidWeeks.length * (t.amount || 0);
+      return [`${p.name} (Turno #${p.nextTurn})`, ...cells, formatCurrency(totalPaid, t.currency)];
+    });
+    
+    if (typeof doc.autoTable === 'function') {
+      doc.autoTable({
+        startY: 90,
+        head: [['Participante', ...weeks, 'Total']],
+        body: body,
+        theme: 'grid',
+        styles: { fontSize: 7, cellPadding: 2.5, overflow: 'linebreak', halign: 'center', valign: 'middle' },
+        headStyles: { fillColor: colors.primary, textColor: 255, fontStyle: 'bold', halign: 'center' },
+        columnStyles: {
+          0: { halign: 'left', cellWidth: 40 },
+          [weeks.length + 1]: { halign: 'right', cellWidth: 25 }
+        },
+        didParseCell: (data) => {
+          if (data.section === 'body' && data.column.index > 0 && data.column.index < weeks.length + 1) {
+            const value = data.cell.text[0];
+            if (value === '✅') data.cell.styles.textColor = colors.success;
+            else if (value === '❌') data.cell.styles.textColor = colors.danger;
+            else if (value === '⏳') data.cell.styles.textColor = colors.warning;
+          }
+        }
+      });
+      
+      const weeklySummary = weeks.map((_, i) => {
+        const weekNum = i + 1;
+        const paidCount = activeParticipants.filter(p => (p.paidWeeks || []).includes(weekNum)).length;
+        const amountCollected = paidCount * (t.amount || 0);
+        return [`Semana ${weekNum}`, `${paidCount}/${activeParticipants.length}`, formatCurrency(amountCollected, t.currency)];
+      });
+      
+      const finalY = doc.lastAutoTable.finalY + 5;
+      if (finalY < 200) {
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(colors.primary);
+        doc.text('📊 Resumen por semana', 14, finalY);
+        
+        doc.autoTable({
+          startY: finalY + 5,
+          head: [['Semana', 'Pagos', 'Recaudado']],
+          body: weeklySummary,
+          theme: 'striped',
+          styles: { fontSize: 8, cellPadding: 3 },
+          headStyles: { fillColor: colors.primary, textColor: 255, fontStyle: 'bold' },
+          columnStyles: {
+            0: { cellWidth: 40 },
+            1: { cellWidth: 30, halign: 'center' },
+            2: { cellWidth: 40, halign: 'right' }
+          }
+        });
+      }
+    }
+    
+    const lastY = typeof doc.lastAutoTable !== 'undefined' && doc.lastAutoTable.finalY 
+      ? doc.lastAutoTable.finalY + 12 
+      : 120;
+    
+    doc.setFontSize(7);
+    doc.setTextColor(120, 120, 120);
+    doc.setFont('helvetica', 'italic');
+    doc.text('Reporte generado por RondaPay - Gestión de tandas', 14, lastY);
+    doc.text('lecterhdz.github.io/Rondapay', 14, lastY + 5);
+    
+    const fileName = `RondaPay_${(t.name || 'reporte').replace(/[^a-z0-9ñáéíóú]/gi, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(fileName);
+    showToast('📄 PDF exportado exitosamente', 'success');
+  }
+
+  // ========================================
+  // 👥 PARTICIPANTES
   // ========================================
   function renderParticipants(filter = '') {
     const t = getTanda();
@@ -322,7 +537,6 @@
       return;
     }
     
-    // ✅ Usar array.map().join() para mejor rendimiento (evita string concatenation lenta)
     list.innerHTML = filtered.map(p => {
       const isPaidThisWeek = p.paidWeeks.includes(t.currentWeek);
       return `
@@ -465,7 +679,7 @@
   }
 
   // ========================================
-  // 💳 PAGOS MATRIX (Optimizado)
+  // 💳 PAGOS MATRIX
   // ========================================
   function renderPaymentsMatrix(weekFilter = 'all') {
     const t = getTanda();
@@ -487,13 +701,11 @@
     
     if (badge) badge.textContent = currentWeek;
     
-    // Determinar semanas a mostrar
     const selectedWeek = weekFilter !== 'all' ? parseInt(weekFilter) : null;
     const weeksToShow = (selectedWeek && selectedWeek <= totalWeeks) 
       ? [selectedWeek] 
       : Array.from({ length: totalWeeks }, (_, i) => i + 1);
     
-    // Renderizar encabezado
     weeksHeader.innerHTML = weeksToShow.map(w => {
       const receiver = activeParticipants.find(p => p.nextTurn === w);
       const isCurrent = w === currentWeek;
@@ -507,7 +719,6 @@
       `;
     }).join('');
     
-    // Renderizar cuerpo
     matrixBody.innerHTML = activeParticipants.map(p => {
       const paidWeeks = Array.isArray(p.paidWeeks) ? p.paidWeeks : [];
       const totalPaid = paidWeeks.length * amount;
@@ -539,7 +750,6 @@
       `;
     }).join('');
     
-    // Renderizar totales por semana
     weeksTotal.innerHTML = weeksToShow.map(w => {
       const count = activeParticipants.filter(p => 
         Array.isArray(p.paidWeeks) && p.paidWeeks.includes(w)
@@ -547,12 +757,55 @@
       return `<div class="week-total" style="text-align:center;padding-top:8px;">${formatCurrency(count * amount, currency)}</div>`;
     }).join('');
     
-    // Total general
     const grand = activeParticipants.reduce((sum, p) => {
       const count = Array.isArray(p.paidWeeks) ? p.paidWeeks.length : 0;
       return sum + (count * amount);
     }, 0);
     grandTotal.textContent = formatCurrency(grand, currency);
+  }
+  
+  function renderPayments(weekFilter = 'all') {
+    const isMatrixView = document.body.classList.contains('payments-matrix-view');
+    if (isMatrixView) {
+      renderPaymentsMatrix(weekFilter);
+      return;
+    }
+    
+    const t = getTanda();
+    const list = el.paymentsList;
+    if (!list || !t) return;
+    
+    const weeks = Array.from({ length: t.totalWeeks }, (_, i) => i + 1);
+    const filteredWeeks = weekFilter === 'all' ? weeks : [parseInt(weekFilter)];
+    
+    list.innerHTML = filteredWeeks.map(w => {
+      const activeParticipants = t.participants.filter(p => p.status === 'active');
+      const paidCount = activeParticipants.filter(p => p.paidWeeks.includes(w)).length;
+      const totalExpected = activeParticipants.length * t.amount;
+      const collected = paidCount * t.amount;
+      const percentage = totalExpected > 0 ? Math.round((collected / totalExpected) * 100) : 0;
+      
+      return `
+        <div class="list-item payment-week" data-week="${w}">
+          <div class="info">
+            <h4>📅 Semana ${w}</h4>
+            <p>💰 ${formatCurrency(collected, t.currency)} / ${formatCurrency(totalExpected, t.currency)}</p>
+            <div class="progress-bar">
+              <div class="progress-fill" style="width: ${percentage}%"></div>
+            </div>
+            <p class="meta">${paidCount} de ${activeParticipants.length} pagaron</p>
+          </div>
+          <span class="status ${percentage === 100 ? 'paid' : percentage > 0 ? 'pending' : 'late'}">
+            ${percentage === 100 ? '✅' : percentage > 0 ? '⏳' : '❌'}
+          </span>
+        </div>
+      `;
+    }).join('');
+    
+    const filterSelect = document.getElementById('payment-week-filter');
+    if (filterSelect && filterSelect.value !== weekFilter) {
+      filterSelect.value = weekFilter;
+    }
   }
   
   function togglePaymentForWeek(pid, week) {
@@ -569,11 +822,9 @@
       p.paidWeeks.splice(idx, 1);
     }
     
-    // Guardado con debounce para mejor rendimiento
     clearTimeout(state.saveTimeout);
     state.saveTimeout = setTimeout(() => saveTanda(t), 500);
     
-    // Actualizar UI sin re-render completo
     const cell = document.querySelector(`.payment-cell[data-participant="${pid}"][data-week="${week}"] .payment-status`);
     if (cell) {
       const isPaid = idx === -1;
@@ -584,6 +835,58 @@
     
     showToast(idx === -1 ? `✅ Pago registrado - Semana ${week}` : `⚠️ Pago desmarcado`, idx === -1 ? 'success' : 'warning');
   }
+  
+  function updateRowTotal(participantId, tanda) {
+    const participant = tanda.participants.find(x => x.id === participantId);
+    const row = document.querySelector(`.matrix-row[data-participant="${participantId}"] .summary-cell`);
+    if (row && participant) {
+      row.textContent = formatCurrency(participant.paidWeeks.length * tanda.amount, tanda.currency);
+    }
+  }
+  
+  function updateWeekTotal(week, tanda) {
+    const activeParticipants = tanda.participants.filter(p => p.status === 'active');
+    const paidCount = activeParticipants.filter(p => p.paidWeeks.includes(week)).length;
+    const weekTotalElement = document.querySelectorAll('#weeks-total .week-total')[week - 1];
+    if (weekTotalElement) {
+      weekTotalElement.textContent = formatCurrency(paidCount * tanda.amount, tanda.currency);
+    }
+  }
+  
+  function updateGrandTotal(tanda) {
+    const grandTotalElement = document.getElementById('grand-total');
+    if (!grandTotalElement) return;
+    
+    const activeParticipants = tanda.participants.filter(p => p.status === 'active');
+    const total = activeParticipants.reduce((sum, p) => sum + (p.paidWeeks.length * tanda.amount), 0);
+    grandTotalElement.textContent = formatCurrency(total, tanda.currency);
+  }
+
+  // ========================================
+  // 🎨 TEMPLATE HELPER
+  // ========================================
+  function applyTandaTemplate(templateName) {
+    const templates = {
+      office: { name: `Tanda Oficina ${new Date().getFullYear()}`, amount: 500, participants: 10, frequency: 'weekly', currency: 'MXN' },
+      family: { name: 'Ahorro Familiar', amount: 1000, participants: 5, frequency: 'monthly', currency: 'MXN' },
+      friends: { name: 'Ronda con Amigos', amount: 200, participants: 8, frequency: 'biweekly', currency: 'MXN' }
+    };
+    
+    const template = templates[templateName];
+    if (!template || !newTandaForm?.fields) {
+      showToast('⚠️ Plantilla no disponible', 'warning');
+      return;
+    }
+    
+    if (newTandaForm.fields.name) newTandaForm.fields.name.value = template.name;
+    if (newTandaForm.fields.amount) newTandaForm.fields.amount.value = template.amount;
+    if (newTandaForm.fields.participants) newTandaForm.fields.participants.value = template.participants;
+    if (newTandaForm.fields.frequency) newTandaForm.fields.frequency.value = template.frequency;
+    if (newTandaForm.fields.currency) newTandaForm.fields.currency.value = template.currency;
+    
+    newTandaForm.updatePreview?.();
+    showToast(`📋 Plantilla "${template.name}" aplicada`, 'success');
+  }
 
   // ========================================
   // 🔄 VISTAS
@@ -591,19 +894,16 @@
   function renderView(viewName) {
     state.currentView = viewName;
     
-    // Ocultar todas las vistas
     document.querySelectorAll('.view').forEach(view => {
       view.classList.remove('active');
       view.setAttribute('inert', '');
     });
     
-    // Mostrar vista seleccionada
     const target = document.getElementById(`${viewName}-view`);
     if (target) {
       target.classList.add('active');
       target.removeAttribute('inert');
       
-      // Renderizar contenido específico
       switch(viewName) {
         case 'dashboard':
           el.pageTitle.textContent = '📊 Dashboard';
@@ -628,16 +928,40 @@
       }
     }
     
-    // Actualizar menú activo
     document.querySelectorAll('[data-view]').forEach(link => {
       const parent = link.parentElement;
       if (parent) parent.classList.toggle('active-link', link.dataset.view === viewName);
     });
   }
-  
+
   // ========================================
   // 🔐 AUTENTICACIÓN
   // ========================================
+  function initDefaultData() {
+    const existingTandas = MultiTanda.getList();
+    if (existingTandas.length === 0) {
+      const defaultTanda = {
+        id: crypto.randomUUID?.() || `default_${Date.now()}`,
+        name: 'Ronda #1',
+        amount: 1000,
+        currency: 'MXN',
+        frequency: 'weekly',
+        startDate: new Date().toISOString().split('T')[0],
+        totalWeeks: 10,
+        currentWeek: 1,
+        participants: [
+          { id: 1, name: 'Ana López', phone: '5551234567', status: 'active', paidWeeks: [1, 2], nextTurn: 3, received: false },
+          { id: 2, name: 'Carlos Ruiz', phone: '5557654321', status: 'active', paidWeeks: [1], nextTurn: 4, received: false },
+          { id: 3, name: 'María Díaz', phone: '5559876543', status: 'pending', paidWeeks: [], nextTurn: 5, received: false },
+          { id: 4, name: 'Luis Gómez', phone: '5551112233', status: 'active', paidWeeks: [1, 2, 3], nextTurn: 6, received: true }
+        ]
+      };
+      MultiTanda.save(defaultTanda.id, defaultTanda);
+      MultiTanda.setActive(defaultTanda.id);
+      console.log('✅ Datos de ejemplo inicializados');
+    }
+  }
+  
   function initTheme() {
     const saved = localStorage.getItem(CONFIG.THEME_KEY) || 'light';
     applyTheme(saved);
@@ -727,6 +1051,7 @@
       if (pass === CONFIG.ADMIN_PASSWORD) {
         state.isAdmin = true;
         showAdmin();
+        initAdminCharts();
         window.history.replaceState({}, document.title, window.location.pathname);
       } else if (pass !== null) {
         alert('❌ Acceso denegado');
@@ -741,17 +1066,14 @@
     if (window.__rondapay_listeners_attached) return;
     window.__rondapay_listeners_attached = true;
     
-    // Login
     if (el.loginBtn) el.loginBtn.addEventListener('click', login);
     if (el.licenseInput) {
       el.licenseInput.addEventListener('keypress', e => { if (e.key === 'Enter') login(); });
     }
     
-    // Theme & Logout
     if (el.themeToggle) el.themeToggle.addEventListener('click', toggleTheme);
     if (el.logoutBtn) el.logoutBtn.addEventListener('click', logout);
     
-    // Menú hamburguesa
     const toggleMenu = (open) => {
       if (el.menu) el.menu.classList.toggle('open', open);
       if (el.showMenu) el.showMenu.classList.toggle('hidden', open);
@@ -772,7 +1094,6 @@
       });
     }
     
-    // Cerrar menú al hacer click fuera
     document.addEventListener('click', e => {
       if (el.menu?.classList.contains('open') && 
           !el.menu.contains(e.target) && 
@@ -782,7 +1103,6 @@
       }
     });
     
-    // Escape para cerrar menú
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape' && el.menu?.classList.contains('open')) {
         toggleMenu(false);
@@ -790,7 +1110,6 @@
       }
     });
     
-    // Navegación
     const handleNavigation = (view, e) => {
       if (e) e.preventDefault();
       if (state.currentView === 'new-tanda' && view !== 'new-tanda' && newTandaForm?.el) {
@@ -812,7 +1131,15 @@
       if (link) handleNavigation(link.dataset.view, e);
     });
     
-    // Hash navigation
+    document.querySelectorAll('[data-template]').forEach(btn => {
+      btn.addEventListener('click', () => applyTandaTemplate(btn.dataset.template));
+    });
+    
+    const exportBtn = document.querySelector('#payments-view .btn-outline');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', exportPaymentsPDF);
+    }
+    
     window.addEventListener('hashchange', () => {
       const hash = window.location.hash.replace('#', '');
       const validViews = ['dashboard', 'participants', 'payments', 'new-tanda'];
@@ -825,12 +1152,7 @@
         setTimeout(() => renderView(hashView), 100);
       }
     }
-    // ✅ Botón de exportar PDF (dentro de la vista de pagos)
-    const exportBtn = document.querySelector('#payments-view .btn-outline');
-    if (exportBtn) {
-      exportBtn.addEventListener('click', exportPaymentsPDF);
-    }  
-    // Teclado shortcuts
+    
     document.addEventListener('keydown', e => {
       const isInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
       if (isInput) return;
@@ -858,7 +1180,6 @@
       }
     });
     
-    // Búsqueda con debounce
     let searchTimeout;
     if (el.searchParticipant) {
       el.searchParticipant.addEventListener('input', e => {
@@ -867,7 +1188,6 @@
       });
     }
     
-    // Botones de participantes
     if (el.addParticipantBtn) {
       el.addParticipantBtn.addEventListener('click', () => {
         if (modal?.open) modal.open();
@@ -880,9 +1200,21 @@
       });
     }
     
-    // Delegación de eventos para participantes
     if (el.participantsList) {
       el.participantsList.addEventListener('click', e => {
+        const addFirstBtn = e.target.closest('[data-action="add-first"]');
+        if (addFirstBtn) {
+          if (modal?.open) modal.open();
+          else {
+            const name = prompt('👤 Nombre del participante:');
+            if (name) {
+              const phone = prompt('📱 Teléfono (10 dígitos):') || '';
+              addParticipant(name, phone);
+            }
+          }
+          return;
+        }
+        
         const btn = e.target.closest('button.icon-btn');
         if (btn) {
           e.stopPropagation();
@@ -895,7 +1227,6 @@
           return;
         }
         
-        // Ver detalles al click en la card
         const item = e.target.closest('.list-item');
         if (item) {
           const id = parseInt(item.dataset.id);
@@ -904,7 +1235,6 @@
       });
     }
     
-    // Filtro de semanas
     if (el.paymentWeek) {
       el.paymentWeek.addEventListener('change', e => {
         const val = e.target.value;
@@ -915,11 +1245,25 @@
             const header = document.querySelector(`.week-cell[data-week="${val}"]`);
             header?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
           }
+        } else {
+          renderPayments(val);
         }
       });
     }
     
-    // PWA Installation
+    if (el.markPaidBtn) {
+      el.markPaidBtn.addEventListener('click', () => {
+        const w = el.paymentWeek?.value || 'all';
+        showToast(`🔧 Función "Marcar pagado masivo" para ${w} - Próximamente`, 'info');
+      });
+    }
+    
+    document.getElementById('modal-confirm-tanda')?.addEventListener('click', (e) => {
+      if (e.target.id === 'modal-confirm-tanda') {
+        e.currentTarget.classList.add('hidden');
+      }
+    });
+    
     if (el.installBtn) {
       el.installBtn.addEventListener('click', async () => {
         if (!state.deferredPrompt) {
@@ -942,16 +1286,16 @@
       });
     }
     
-    // Resize handler with debounce
     let resizeTimeout;
     window.addEventListener('resize', () => {
       clearTimeout(resizeTimeout);
       resizeTimeout = setTimeout(() => {
         if (state.currentView === 'dashboard' || state.isAdmin) initCharts();
+        if (state.isAdmin) initAdminCharts();
       }, 250);
     });
   }
-  
+
   // ========================================
   // 👥 COMPONENT: MODAL PARTICIPANTE
   // ========================================
@@ -1067,19 +1411,6 @@
       this.initConfirmModal();
     },
     
-    calculatePreview(amount, participants, frequency, startDate) {
-      const freqDays = { weekly: 7, biweekly: 15, monthly: 30 };
-      const totalWeeks = participants;
-      const totalDays = freqDays[frequency] * totalWeeks;
-      return {
-        duration: `${totalWeeks} ${frequency === 'weekly' ? 'semanas' : frequency === 'biweekly' ? 'quincenas' : 'meses'}`,
-        weekly: amount * participants,
-        total: amount * participants * totalWeeks,
-        endDate: formatDate(addDays(startDate, totalDays)),
-        nextDate: formatDate(addDays(startDate, freqDays[frequency]))
-      };
-    },
-    
     updatePreview() {
       const amount = parseFloat(this.fields.amount?.value) || 0;
       const participants = parseInt(this.fields.participants?.value) || 2;
@@ -1087,7 +1418,7 @@
       const startDate = this.fields.start?.value ? new Date(this.fields.start.value) : new Date();
       const currency = this.fields.currency?.value || 'MXN';
       
-      const preview = this.calculatePreview(amount, participants, frequency, startDate);
+      const preview = calculateTandaPreview(amount, participants, frequency, startDate);
       const symbol = { MXN: '$', USD: '$', EUR: '€', COP: '$', PEN: 'S/' }[currency] || '$';
       
       const durationEl = document.getElementById('preview-duration');
@@ -1095,7 +1426,9 @@
       const totalEl = document.getElementById('preview-total');
       const endDateEl = document.getElementById('preview-end-date');
       const nextDateEl = document.getElementById('preview-next-date');
+      const currencySymbolSpan = document.getElementById('currency-symbol-preview');
       
+      if (currencySymbolSpan) currencySymbolSpan.textContent = symbol;
       if (durationEl) durationEl.textContent = preview.duration;
       if (weeklyEl) weeklyEl.textContent = `${symbol}${preview.weekly.toLocaleString()}`;
       if (totalEl) totalEl.textContent = `${symbol}${preview.total.toLocaleString()}`;
@@ -1198,7 +1531,7 @@
       const participants = parseInt(this.fields.participants?.value);
       const frequency = this.fields.frequency?.value;
       const startDate = new Date(this.fields.start?.value);
-      const preview = this.calculatePreview(amount, participants, frequency, startDate);
+      const preview = calculateTandaPreview(amount, participants, frequency, startDate);
       
       const confirmName = document.getElementById('confirm-name');
       const confirmAmount = document.getElementById('confirm-amount');
@@ -1245,9 +1578,7 @@
       if (this.el) this.el.reset();
       this.updatePreview();
       
-      const selector = document.getElementById('tanda-selector');
-      if (selector && selector._updateList) selector._updateList();
-      
+      renderTandaSelector();
       showToast('🎉 ¡Tanda creada exitosamente!', 'success');
       renderView('dashboard');
     }
@@ -1353,7 +1684,6 @@
       return `<option value="${id}" ${selected}>${escapeHtml(name)}</option>`;
     }).join('');
     
-    // Guardar función de actualización
     select._updateList = () => renderTandaSelector();
   }
   
@@ -1458,6 +1788,9 @@
       .form-group label { font-weight: 500; font-size: .9rem; }
       .form-group input, .form-group select { padding: 12px 14px; border: 2px solid var(--border); border-radius: 12px; background: var(--bg); color: var(--text); font-size: 1rem; transition: all .2s; width: 100%; }
       .form-group input:focus, .form-group select:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,.15); }
+      .input-with-prefix { position: relative; display: flex; align-items: center; }
+      .input-with-prefix .currency-prefix { position: absolute; left: 14px; color: var(--text-secondary); font-weight: 500; pointer-events: none; font-size: 1.1rem; z-index: 1; }
+      .input-with-prefix input { padding-left: 32px !important; padding-right: 14px; position: relative; z-index: 2; background: var(--bg); }
       .preview-card { background: linear-gradient(135deg,rgba(79,70,229,.08),rgba(16,185,129,.08)); border: 1px solid rgba(79,70,229,.2); border-radius: 12px; padding: 16px; margin-top: 8px; }
       .preview-card h4 { margin: 0 0 12px; font-size: .95rem; color: #4f46e5; }
       .preview-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 12px; }
@@ -1473,34 +1806,6 @@
       .templates-bar span { font-size: .85rem; color: var(--text-secondary); }
       .btn-chip { background: var(--surface); border: 1px solid var(--border); padding: 6px 12px; border-radius: 20px; font-size: .8rem; cursor: pointer; transition: all .2s; }
       .btn-chip:hover { border-color: #4f46e5; color: #4f46e5; }
-          /* ✅ CORRECCIÓN: Input con prefijo de moneda */
-    .input-with-prefix {
-      position: relative;
-      display: flex;
-      align-items: center;
-    }
-    .input-with-prefix .currency-prefix {
-      position: absolute;
-      left: 14px;
-      color: var(--text-secondary);
-      font-weight: 500;
-      pointer-events: none;
-      font-size: 1.1rem;
-      z-index: 1;
-      background: transparent;
-    }
-    .input-with-prefix input {
-      padding-left: 32px !important;  /* ✅ Espacio suficiente para el símbolo */
-      padding-right: 14px;
-      position: relative;
-      z-index: 2;
-      background: var(--bg);
-    }
-    /* Asegurar que el input tenga fondo sólido para cubrir el símbolo si es necesario */
-    .input-with-prefix input:focus {
-      background: var(--bg);
-      z-index: 3;
-    }
       @media (max-width: 600px) {
         .form-row.two-cols { grid-template-columns: 1fr; }
         .preview-grid { grid-template-columns: 1fr; }
@@ -1514,173 +1819,13 @@
     `;
     document.head.appendChild(style);
   }
-  // ========================================
-  // 📤 EXPORTAR PAGOS A PDF
-  // ========================================
-  function exportPaymentsPDF() {
-    const t = getTanda();
-    if (!t) {
-      showToast('❌ No hay tanda para exportar', 'error');
-      return;
-    }
-    
-    // Verificar que jsPDF está cargado
-    if (typeof window.jspdf === 'undefined') {
-      showToast('⏳ Cargando generador de PDF...', 'info');
-      // Intentar cargar dinámicamente si no está disponible
-      const script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-      script.onload = () => {
-        script2 = document.createElement('script');
-        script2.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js';
-        script2.onload = () => setTimeout(() => exportPaymentsPDF(), 100);
-        document.head.appendChild(script2);
-      };
-      document.head.appendChild(script);
-      return;
-    }
-    
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-    const colors = { primary: [79, 70, 229], success: [16, 185, 129], warning: [245, 158, 11], danger: [239, 68, 68] };
-    
-    // 📄 Header con gradiente (simulado)
-    doc.setFillColor(...colors.primary);
-    doc.rect(0, 0, 297, 22, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.text('🤝 RondaPay - Reporte de Pagos', 14, 14);
-    
-    // 📋 Información de la tanda
-    doc.setTextColor(50, 50, 50);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    
-    const startDate = new Date(t.startDate);
-    const endDate = new Date(startDate);
-    endDate.setDate(endDate.getDate() + ((t.totalWeeks || 5) * 7));
-    
-    const infoLines = [
-      `📌 Tanda: ${t.name || 'Sin nombre'}`,
-      `💰 Monto: ${formatCurrency(t.amount, t.currency)} • ${t.frequency === 'weekly' ? 'Semanal' : t.frequency === 'biweekly' ? 'Quincenal' : 'Mensual'}`,
-      `📅 Período: ${formatDate(startDate)} → ${formatDate(endDate)}`,
-      `👥 Participantes: ${t.participants?.length || 0} activos`,
-      `📊 Semana actual: ${t.currentWeek || 1} / ${t.totalWeeks || 5}`,
-      `🕒 Generado: ${new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`
-    ];
-    
-    infoLines.forEach((line, i) => {
-      doc.text(line, 14, 28 + (i * 5));
-    });
-    
-    // 📊 Resumen financiero
-    const activeParticipants = (t.participants || []).filter(p => p.status !== 'inactive');
-    const totalExpected = activeParticipants.length * (t.totalWeeks || 5) * (t.amount || 0);
-    const totalCollected = activeParticipants.reduce((sum, p) => sum + ((p.paidWeeks?.length || 0) * (t.amount || 0)), 0);
-    const percentage = totalExpected > 0 ? Math.round((totalCollected / totalExpected) * 100) : 0;
-    
-    doc.setFillColor(245, 245, 245);
-    doc.rect(14, 58, 82, 22, 'F');
-    doc.setFontSize(8);
-    doc.setTextColor(30, 30, 30);
-    doc.text(`💰 Total recaudado: ${formatCurrency(totalCollected, t.currency)}`, 18, 66);
-    doc.text(`🎯 Meta total: ${formatCurrency(totalExpected, t.currency)}`, 18, 73);
-    doc.text(`📈 Cumplimiento: ${percentage}%`, 18, 80);
-    
-    // 📋 Tabla de pagos por participante
-    const weeks = Array.from({ length: t.totalWeeks || 5 }, (_, i) => `S${i + 1}`);
-    const body = activeParticipants.map(p => {
-      const paidWeeks = Array.isArray(p.paidWeeks) ? p.paidWeeks : [];
-      const cells = weeks.map((_, i) => {
-        const weekNum = i + 1;
-        const isPaid = paidWeeks.includes(weekNum);
-        const isLate = weekNum < (t.currentWeek || 1) && !isPaid;
-        return isPaid ? '✅' : (isLate ? '❌' : '⏳');
-      });
-      const totalPaid = paidWeeks.length * (t.amount || 0);
-      return [`${p.name} (Turno #${p.nextTurn})`, ...cells, formatCurrency(totalPaid, t.currency)];
-    });
-    
-    // Configurar autoTable
-    if (typeof doc.autoTable === 'function') {
-      doc.autoTable({
-        startY: 90,
-        head: [['Participante', ...weeks, 'Total']],
-        body: body,
-        theme: 'grid',
-        styles: { fontSize: 7, cellPadding: 2.5, overflow: 'linebreak', halign: 'center', valign: 'middle' },
-        headStyles: { fillColor: colors.primary, textColor: 255, fontStyle: 'bold', halign: 'center' },
-        columnStyles: {
-          0: { halign: 'left', cellWidth: 40 },
-          [weeks.length + 1]: { halign: 'right', cellWidth: 25 }
-        },
-        didParseCell: (data) => {
-          if (data.section === 'body' && data.column.index > 0 && data.column.index < weeks.length + 1) {
-            const value = data.cell.text[0];
-            if (value === '✅') data.cell.styles.textColor = colors.success;
-            else if (value === '❌') data.cell.styles.textColor = colors.danger;
-            else if (value === '⏳') data.cell.styles.textColor = colors.warning;
-          }
-        }
-      });
-      
-      // 📊 Resumen por semana (tabla adicional)
-      const weeklySummary = weeks.map((_, i) => {
-        const weekNum = i + 1;
-        const paidCount = activeParticipants.filter(p => (p.paidWeeks || []).includes(weekNum)).length;
-        const amountCollected = paidCount * (t.amount || 0);
-        return [`Semana ${weekNum}`, `${paidCount}/${activeParticipants.length}`, formatCurrency(amountCollected, t.currency)];
-      });
-      
-      const finalY = doc.lastAutoTable.finalY + 5;
-      if (finalY < 200) {
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(colors.primary);
-        doc.text('📊 Resumen por semana', 14, finalY);
-        
-        doc.autoTable({
-          startY: finalY + 5,
-          head: [['Semana', 'Pagos', 'Recaudado']],
-          body: weeklySummary,
-          theme: 'striped',
-          styles: { fontSize: 8, cellPadding: 3 },
-          headStyles: { fillColor: colors.primary, textColor: 255, fontStyle: 'bold' },
-          columnStyles: {
-            0: { cellWidth: 40 },
-            1: { cellWidth: 30, halign: 'center' },
-            2: { cellWidth: 40, halign: 'right' }
-          }
-        });
-      }
-    } else {
-      // Fallback si autoTable no está disponible
-      doc.setFontSize(10);
-      doc.text('⚠️ Tabla detallada no disponible - instala jspdf-autotable', 14, 100);
-    }
-    
-    // 🦶 Footer
-    const lastY = typeof doc.lastAutoTable !== 'undefined' && doc.lastAutoTable.finalY 
-      ? doc.lastAutoTable.finalY + 12 
-      : 120;
-    
-    doc.setFontSize(7);
-    doc.setTextColor(120, 120, 120);
-    doc.setFont('helvetica', 'italic');
-    doc.text('Reporte generado por RondaPay - Gestión de tandas', 14, lastY);
-    doc.text('lecterhdz.github.io/Rondapay', 14, lastY + 5);
-    
-    // 💾 Descargar
-    const fileName = `RondaPay_${(t.name || 'reporte').replace(/[^a-z0-9ñáéíóú]/gi, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
-    doc.save(fileName);
-    showToast('📄 PDF exportado exitosamente', 'success');
-  }  
+  
   // ========================================
   // INICIALIZACIÓN
   // ========================================
   function init() {
     initTheme();
+    initDefaultData();
     MultiTanda.migrateLegacy();
     checkSession();
     checkAdminAccess();
