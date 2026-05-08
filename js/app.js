@@ -419,7 +419,7 @@
           break;
         case 'payments':
           el.pageTitle.textContent = '💳 Pagos';
-          renderPayments();
+          renderPaymentsMatrix();
           break;
         case 'new-tanda':
           el.pageTitle.textContent = '➕ Nueva Tanda';
