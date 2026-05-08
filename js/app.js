@@ -324,7 +324,7 @@
   // ========================================
   // 💳 PAGOS
   // ========================================
-  function renderPaymentsMatrix(wf = 'all') {
+  function renderPaymentsMatrix(weekFilter = 'all') {
     const t = getTanda();
     const cont = document.getElementById('payments-matrix');
     const wh = document.getElementById('weeks-header');
@@ -335,103 +335,93 @@
 
     if (!cont || !t) return;
 
-    // ✅ VALIDACIONES DE SEGURIDAD (evita undefined/NaN)
+    // Validaciones
     const amount = parseFloat(t.amount) || 0;
     const currency = t.currency || 'MXN';
     const currentWeek = parseInt(t.currentWeek) || 1;
     const totalWeeks = parseInt(t.totalWeeks) || 10;
     const participants = t.participants || [];
+    const activeP = participants.filter(p => p.status !== 'inactive');
 
-    // Actualizar badge de semana actual
     if (badge) badge.textContent = currentWeek;
 
-    const weeks = Array.from({ length: totalWeeks }, (_, i) => i + 1);
-    // ✅ LLENAR FILTRO DE SEMANAS DINÁMICAMENTE
+    // ✅ Determinar qué semanas mostrar
+    const weeksToShow = weekFilter === 'all' 
+      ? Array.from({ length: totalWeeks }, (_, i) => i + 1)
+      : [parseInt(weekFilter)];
+
+    // ✅ Poblar filtro dinámicamente (solo si no tiene opciones)
     const filter = document.getElementById('payment-week');
-    if (filter) {
+    if (filter && filter.options.length <= 1) {
       filter.innerHTML = '<option value="all">📅 Todas las semanas</option>';
-      weeks.forEach(w => {
+      for (let w = 1; w <= totalWeeks; w++) {
         filter.innerHTML += `<option value="${w}">Semana ${w}</option>`;
-      });
-    }    
-    // 1. GENERAR ENCABEZADOS (Semanas + QUIÉN RECIBE)
-    wh.innerHTML = weeks.map(w => {
-      const receiver = participants.find(p => p.nextTurn === w);
-      const receiverName = receiver ? `🎁 ${receiver.name?.split(' ')[0] || ''}` : '';
+      }
+    }
+
+    // 1️⃣ ENCABEZADO (solo semanas visibles)
+    wh.innerHTML = weeksToShow.map(w => {
+      const receiver = activeP.find(p => p.nextTurn === w);
       const isCurrent = w === currentWeek;
-      
       return `
         <div class="week-cell ${isCurrent ? 'current' : ''}" data-week="${w}">
           <span class="week-num">S${w}</span>
           <span class="week-date">${getWeekDate(t.startDate, w, t.frequency)}</span>
-          ${receiverName ? `<small style="font-size:0.65rem; color:var(--success); display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${receiverName}</small>` : ''}
+          ${receiver ? `<small style="color:var(--success);font-size:0.65rem;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">🎁 ${escapeHtml(receiver.name.split(' ')[0])}</small>` : ''}
         </div>
       `;
     }).join('');
 
-    // 2. GENERAR CUERPO (Participantes y sus pagos)
-    mb.innerHTML = participants
-      .filter(p => p.status !== 'inactive')
-      .map(p => {
-        // ✅ Safe access a paidWeeks (puede ser undefined)
-        const paidWeeks = Array.isArray(p.paidWeeks) ? p.paidWeeks : [];
-        const paidCount = paidWeeks.length;
-        const totalPaid = paidCount * amount;
-        const isReceiverInCurrentWeek = p.nextTurn === currentWeek;
+    // 2️⃣ CUERPO (participantes)
+    mb.innerHTML = activeP.map(p => {
+      const paidWeeks = Array.isArray(p.paidWeeks) ? p.paidWeeks : [];
+      const totalPaid = paidWeeks.length * amount;
+      const isReceiverNow = p.nextTurn === currentWeek;
 
+      // Celdas de pago (solo semanas visibles)
+      const cells = weeksToShow.map(w => {
+        const isPaid = paidWeeks.includes(w);
+        const isLate = w < currentWeek && !isPaid;
+        const status = isPaid ? 'paid' : (isLate ? 'late' : 'pending');
+        const icon = isPaid ? '✅' : (isLate ? '❌' : '⏳');
         return `
-          <div class="matrix-row" data-participant="${p.id}">
-            <div class="participant-cell sticky-left ${isReceiverInCurrentWeek ? 'highlight-row' : ''}">
-              <div class="participant-info">
-                ${escapeHtml(p.name || 'Sin nombre')}
-                <small>Turno #${p.nextTurn || '?'} ${p.status === 'pending' ? '(Pendiente)' : ''}</small>
-              </div>
-            </div>
-            <div class="weeks-grid">
-              ${weeks.map(w => {
-                const isPaid = paidWeeks.includes(w);
-                const isLate = w < currentWeek && !isPaid;
-                let sc = 'pending', icn = '⏳';
-                
-                if (isPaid) { sc = 'paid'; icn = '✅'; } 
-                else if (isLate) { sc = 'late'; icn = '❌'; }
-                
-                if (isPaid && p.received) sc += ' received';
-
-                return `
-                  <div class="payment-cell" data-participant="${p.id}" data-week="${w}" tabindex="0">
-                    <span class="payment-status ${sc}">${icn}</span>
-                  </div>
-                `;
-              }).join('')}
-            </div>
-            <div class="summary-cell sticky-right">
-              ${formatCurrency(totalPaid, currency)}
-            </div>
+          <div class="payment-cell" data-participant="${p.id}" data-week="${w}" tabindex="0">
+            <span class="payment-status ${status}">${icon}</span>
           </div>
         `;
       }).join('');
 
-    // 3. GENERAR FOOTER (Totales por semana)
-    wt.innerHTML = weeks.map(w => {
-      const count = participants.filter(p => 
-        p.status !== 'inactive' && 
-        Array.isArray(p.paidWeeks) && 
-        p.paidWeeks.includes(w)
-      ).length;
-      const total = count * amount;
-      return `<div class="week-total" style="text-align:center; padding-top:10px;">${formatCurrency(total, currency)}</div>`;
+      // Mostrar indicador de modo filtrado
+      const filterBadge = weekFilter !== 'all' 
+        ? `<small style="color:var(--primary);font-size:0.7rem;display:block;margin-top:4px;">🔍 Semana ${weekFilter}</small>` 
+        : '';
+
+      return `
+        <div class="matrix-row" data-participant="${p.id}">
+          <div class="participant-cell sticky-left ${isReceiverNow ? 'highlight-row' : ''}">
+            <div class="participant-info">
+              ${escapeHtml(p.name || 'Sin nombre')}
+              <small>Turno #${p.nextTurn || '?'} ${filterBadge}</small>
+            </div>
+          </div>
+          <div class="weeks-grid">${cells}</div>
+          <div class="summary-cell sticky-right">${formatCurrency(totalPaid, currency)}</div>
+        </div>
+      `;
     }).join('');
 
-    // Total General Recaudado
-    const grandTotal = participants
-      .filter(p => p.status !== 'inactive')
-      .reduce((sum, p) => {
-        const paidCount = Array.isArray(p.paidWeeks) ? p.paidWeeks.length : 0;
-        return sum + (paidCount * amount);
-      }, 0);
-    
-    gt.textContent = formatCurrency(grandTotal, currency);
+    // 3️⃣ FOOTER (totales por semana visible)
+    wt.innerHTML = weeksToShow.map(w => {
+      const count = activeP.filter(p => Array.isArray(p.paidWeeks) && p.paidWeeks.includes(w)).length;
+      return `<div class="week-total" style="text-align:center;padding-top:8px;">${formatCurrency(count * amount, currency)}</div>`;
+    }).join('');
+
+    // Total general
+    const grand = activeP.reduce((s, p) => {
+      const pc = Array.isArray(p.paidWeeks) ? p.paidWeeks.length : 0;
+      return s + (pc * amount);
+    }, 0);
+    gt.textContent = formatCurrency(grand, currency);
   }
   function renderPayments(wf='all') {
     const isM=document.body.classList.contains('payments-matrix-view');
@@ -519,16 +509,17 @@
     el.paymentWeek?.addEventListener('change',e=>renderPayments(e.target.value));
     el.markPaidBtn?.addEventListener('click',()=>{const w=el.paymentWeek?.value||'all';showToast(`🔧 Función "Marcar pagado masivo" para ${w} - Próximamente`,'info');});
 
-    // 🎯 FILTRO DE SEMANAS PARA MATRIX (nuevo)
-    el.paymentWeek?.addEventListener('change', (e) => {  // ✅ Usa el referencia ya definida
+    // 🎯 FILTRO DE SEMANAS: Re-renderiza la matrix con la semana seleccionada
+    el.paymentWeek?.addEventListener('change', (e) => {
       const week = e.target.value;
-      document.querySelectorAll('.focus-week').forEach(el => el.classList.remove('focus-week'));
+      // Re-renderizar matrix con el filtro aplicado
+      renderPaymentsMatrix(week);
+      // Scroll suave al header si es una semana específica
       if (week !== 'all') {
-        document.querySelectorAll(`[data-week="${week}"]`).forEach(el => el.classList.add('focus-week'));
         const header = document.querySelector(`.week-cell[data-week="${week}"]`);
         header?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
       }
-    }); 
+    });
     document.getElementById('btn-confirm-create')?.addEventListener('click',()=>{if(newTandaForm?.createTanda)newTandaForm.createTanda();document.getElementById('modal-confirm-tanda')?.classList.add('hidden');});
     document.querySelectorAll('#modal-confirm-tanda .modal-close')?.forEach(b=>b.addEventListener('click',()=>document.getElementById('modal-confirm-tanda')?.classList.add('hidden')));
     document.getElementById('modal-confirm-tanda')?.addEventListener('click',e=>{if(e.target.id==='modal-confirm-tanda')e.currentTarget.classList.add('hidden');});
