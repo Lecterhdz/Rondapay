@@ -128,21 +128,22 @@
   function formatDate(d,o={}) { return new Date(d).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric',...o}); }
   function getWeekDate(startDate, weekNum, frequency) {
     try {
-      // Asegurar que startDate es un objeto Date válido
+      // Validar semana
+      const w = parseInt(weekNum);
+      if (!w || w < 1) return '---';
+      
       const start = startDate instanceof Date ? startDate : new Date(startDate);
-      if (isNaN(start.getTime())) return '---'; // Fallback si fecha inválida
+      if (isNaN(start.getTime())) return '---';
       
       const freqDays = { weekly: 7, biweekly: 15, monthly: 30 };
       const days = freqDays[frequency] || 7;
-      const target = new Date(start.getTime() + (days * (weekNum - 1) * 24 * 60 * 60 * 1000));
+      const target = new Date(start.getTime() + (days * (w - 1) * 86400000));
       
-      // Formato corto: "15 Oct"
       return target.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
     } catch (e) {
-      console.warn('⚠️ Error calculando fecha:', e);
       return '---';
     }
-   }
+  }
   function calculateTandaPreview(amt,part,freq,start) {
     const fd={weekly:7,biweekly:15,monthly:30}, tw=part, td=fd[freq]*tw;
     return {
@@ -335,27 +336,32 @@
 
     if (!cont || !t) return;
 
-    // Validaciones
+    // ✅ VALIDACIONES ROBUSTAS
     const amount = parseFloat(t.amount) || 0;
     const currency = t.currency || 'MXN';
     const currentWeek = parseInt(t.currentWeek) || 1;
-    const totalWeeks = parseInt(t.totalWeeks) || 10;
+    const totalWeeks = parseInt(t.totalWeeks) || 5;
     const participants = t.participants || [];
     const activeP = participants.filter(p => p.status !== 'inactive');
 
     if (badge) badge.textContent = currentWeek;
 
-    // ✅ Determinar qué semanas mostrar
-    const weeksToShow = weekFilter === 'all' 
-      ? Array.from({ length: totalWeeks }, (_, i) => i + 1)
-      : [parseInt(weekFilter)];
+    // ✅ Parsear filtro: "1", "2", "all" → número o 'all'
+    const filterValue = String(weekFilter || 'all').trim();
+    const selectedWeek = filterValue === 'all' ? null : parseInt(filterValue);
+    const isValidWeek = selectedWeek && selectedWeek >= 1 && selectedWeek <= totalWeeks;
 
-    // ✅ Poblar filtro dinámicamente (solo si no tiene opciones)
-    const filter = document.getElementById('payment-week');
-    if (filter && filter.options.length <= 1) {
-      filter.innerHTML = '<option value="all">📅 Todas las semanas</option>';
+    // ✅ Determinar semanas a mostrar
+    const weeksToShow = (!filterValue || filterValue === 'all' || !isValidWeek)
+      ? Array.from({ length: totalWeeks }, (_, i) => i + 1)
+      : [selectedWeek];
+
+    // ✅ Poblar filtro SOLO si está vacío o tiene 1 opción
+    const filterEl = document.getElementById('payment-week');
+    if (filterEl && filterEl.options.length <= 1) {
+      filterEl.innerHTML = '<option value="all">📅 Todas las semanas</option>';
       for (let w = 1; w <= totalWeeks; w++) {
-        filter.innerHTML += `<option value="${w}">Semana ${w}</option>`;
+        filterEl.innerHTML += `<option value="${w}">Semana ${w}</option>`;
       }
     }
 
@@ -363,10 +369,12 @@
     wh.innerHTML = weeksToShow.map(w => {
       const receiver = activeP.find(p => p.nextTurn === w);
       const isCurrent = w === currentWeek;
+      const dateStr = getWeekDate(t.startDate, w, t.frequency);
+      
       return `
         <div class="week-cell ${isCurrent ? 'current' : ''}" data-week="${w}">
           <span class="week-num">S${w}</span>
-          <span class="week-date">${getWeekDate(t.startDate, w, t.frequency)}</span>
+          <span class="week-date">${dateStr}</span>
           ${receiver ? `<small style="color:var(--success);font-size:0.65rem;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">🎁 ${escapeHtml(receiver.name.split(' ')[0])}</small>` : ''}
         </div>
       `;
@@ -378,7 +386,6 @@
       const totalPaid = paidWeeks.length * amount;
       const isReceiverNow = p.nextTurn === currentWeek;
 
-      // Celdas de pago (solo semanas visibles)
       const cells = weeksToShow.map(w => {
         const isPaid = paidWeeks.includes(w);
         const isLate = w < currentWeek && !isPaid;
@@ -391,9 +398,9 @@
         `;
       }).join('');
 
-      // Mostrar indicador de modo filtrado
-      const filterBadge = weekFilter !== 'all' 
-        ? `<small style="color:var(--primary);font-size:0.7rem;display:block;margin-top:4px;">🔍 Semana ${weekFilter}</small>` 
+      // Badge de filtro activo
+      const filterBadge = isValidWeek 
+        ? `<small style="color:var(--primary);font-size:0.7rem;display:block;margin-top:4px;">🔍 Semana ${selectedWeek}</small>` 
         : '';
 
       return `
@@ -410,7 +417,7 @@
       `;
     }).join('');
 
-    // 3️⃣ FOOTER (totales por semana visible)
+    // 3️⃣ FOOTER (totales)
     wt.innerHTML = weeksToShow.map(w => {
       const count = activeP.filter(p => Array.isArray(p.paidWeeks) && p.paidWeeks.includes(w)).length;
       return `<div class="week-total" style="text-align:center;padding-top:8px;">${formatCurrency(count * amount, currency)}</div>`;
@@ -422,6 +429,8 @@
       return s + (pc * amount);
     }, 0);
     gt.textContent = formatCurrency(grand, currency);
+    
+    console.log('✅ Matrix renderizada:', { weeksToShow, filterValue, selectedWeek, isValidWeek });
   }
   function renderPayments(wf='all') {
     const isM=document.body.classList.contains('payments-matrix-view');
@@ -509,14 +518,15 @@
     el.paymentWeek?.addEventListener('change',e=>renderPayments(e.target.value));
     el.markPaidBtn?.addEventListener('click',()=>{const w=el.paymentWeek?.value||'all';showToast(`🔧 Función "Marcar pagado masivo" para ${w} - Próximamente`,'info');});
 
-    // 🎯 FILTRO DE SEMANAS: Re-renderiza la matrix con la semana seleccionada
+    // 🎯 FILTRO DE SEMANAS: Re-renderiza con el valor NUMÉRICO
     el.paymentWeek?.addEventListener('change', (e) => {
-      const week = e.target.value;
-      // Re-renderizar matrix con el filtro aplicado
-      renderPaymentsMatrix(week);
-      // Scroll suave al header si es una semana específica
-      if (week !== 'all') {
-        const header = document.querySelector(`.week-cell[data-week="${week}"]`);
+      const value = e.target.value; // "all", "1", "2", etc.
+      console.log('🎯 Filtro cambiado a:', value);
+      renderPaymentsMatrix(value);
+      
+      // Scroll suave si es una semana específica
+      if (value !== 'all') {
+        const header = document.querySelector(`.week-cell[data-week="${value}"]`);
         header?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
       }
     });
