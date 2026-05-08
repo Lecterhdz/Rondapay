@@ -295,11 +295,12 @@
       list.innerHTML = `
         <div class="empty-state">
           🔍 No se encontraron participantes${filter ? ` para "${escapeHtml(filter)}"` : ''}
-          ${!filter && !tanda.participants.length 
+          ${!filter && !t.participants.length 
             ? '<br><button class="btn-primary" style="margin-top:12px" data-action="add-first">+ Agregar primero</button>' 
             : ''}
         </div>
       `;
+      return;
     list.innerHTML=f.map(p=>{const ip=p.paidWeeks.includes(t.currentWeek);return`<div class="list-item" data-id="${p.id}" tabindex="0"><div class="avatar" aria-hidden="true">${p.name.charAt(0).toUpperCase()}</div><div class="info"><h4>${escapeHtml(p.name)}</h4><p>📱 ${formatPhone(p.phone)} • Turno: #${p.nextTurn}</p><p class="meta">💰 Pagadas: ${p.paidWeeks.length}/${t.totalWeeks}</p></div><div class="actions" role="group"><span class="status ${p.status}">${getStatusText(p.status)}</span><button class="icon-btn mark-paid ${ip?'done':''}" data-id="${p.id}" title="${ip?'Pago registrado':'Marcar como pagado'}">${ip?'✅':'💵'}</button><button class="icon-btn edit-participant" data-id="${p.id}" title="Editar">✏️</button><button class="icon-btn delete-participant" data-id="${p.id}" title="Eliminar">🗑️</button></div></div>`;}).join('');
   }
   function togglePayment(pid) {
@@ -654,22 +655,21 @@
     el.participantsList?.addEventListener('click',e=>{const b=e.target.closest('button.icon-btn');if(!b)return;e.stopPropagation();const id=parseInt(b.dataset.id);if(!id||isNaN(id))return;if(b.classList.contains('mark-paid'))togglePayment(id);else if(b.classList.contains('edit-participant')){const t=getTanda(),p=t.participants.find(x=>x.id===id);if(p)editParticipantModal?.open?.(p);}else if(b.classList.contains('delete-participant'))deleteParticipant(id);});
     el.participantsList?.addEventListener('click',e=>{const it=e.target.closest('.list-item');if(!it)return;if(e.target.closest('button'))return;const id=parseInt(it.dataset.id);if(id)showParticipantDetails(id);});
     // 🎯 Delegación para botón "Agregar primero" en estado vacío
-    el.participantsList?.addEventListener('click', (e) => {
-      const addFirstBtn = e.target.closest('[data-action="add-first"]');
-      if (addFirstBtn) {
-        e.stopPropagation();
-        if (modal?.open) {
-          modal.open();
-        } else {
-          // Fallback si modal no está disponible
-          const name = prompt('👤 Nombre del participante:');
-          if (name === null) return;
-          const phone = prompt('📱 Teléfono (10 dígitos):') || '';
-          addParticipant(name, phone);
+    // ✅ Listener único que decide qué función llamar
+    el.paymentWeek?.addEventListener('change', (e) => {
+      const val = e.target.value;
+      const isMatrix = document.getElementById('payments-matrix')?.offsetParent !== null;
+      
+      if (isMatrix) {
+        renderPaymentsMatrix(val);
+        if (val !== 'all') {
+          const header = document.querySelector(`.week-cell[data-week="${val}"]`);
+          header?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
         }
+      } else {
+        renderPayments(val);
       }
-     });    
-    el.paymentWeek?.addEventListener('change',e=>renderPayments(e.target.value));
+    });  
     el.markPaidBtn?.addEventListener('click',()=>{const w=el.paymentWeek?.value||'all';showToast(`🔧 Función "Marcar pagado masivo" para ${w} - Próximamente`,'info');});
 
     // 🎯 FILTRO DE SEMANAS: Pasa el valor directo (ej: "1")
@@ -886,4 +886,4 @@
   // 🏁 ARRANQUE
   // ========================================
   if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',init);}else{init();}
-  }})(); // ← FIN DEL IIFE
+  })(); // ← FIN DEL IIFE
