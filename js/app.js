@@ -336,7 +336,7 @@
 
     if (!cont || !t) return;
 
-    // ✅ VALIDACIONES ROBUSTAS
+    // ✅ 1. VALIDACIONES Y PARSING ROBUSTO
     const amount = parseFloat(t.amount) || 0;
     const currency = t.currency || 'MXN';
     const currentWeek = parseInt(t.currentWeek) || 1;
@@ -346,41 +346,52 @@
 
     if (badge) badge.textContent = currentWeek;
 
-    // ✅ Parsear filtro: "1", "2", "all" → número o 'all'
-    const filterValue = String(weekFilter || 'all').trim();
-    const selectedWeek = filterValue === 'all' ? null : parseInt(filterValue);
-    const isValidWeek = selectedWeek && selectedWeek >= 1 && selectedWeek <= totalWeeks;
+    // ✅ EXTRAER NÚMERO DE FILTRO (Soporta "1", "Sem 1", "Week 1", etc.)
+    const rawVal = String(weekFilter || 'all').trim();
+    const isAll = rawVal === 'all' || rawVal === '';
+    const numMatch = rawVal.match(/\d+/); // Busca el primer número
+    const selectedWeek = isAll ? null : (numMatch ? parseInt(numMatch[0]) : null);
+    
+    // Determinar semanas a mostrar
+    const weeksToShow = (selectedWeek && selectedWeek <= totalWeeks) 
+      ? [selectedWeek] 
+      : Array.from({ length: totalWeeks }, (_, i) => i + 1);
 
-    // ✅ Determinar semanas a mostrar
-    const weeksToShow = (!filterValue || filterValue === 'all' || !isValidWeek)
-      ? Array.from({ length: totalWeeks }, (_, i) => i + 1)
-      : [selectedWeek];
-
-    // ✅ Poblar filtro SOLO si está vacío o tiene 1 opción
+    // ✅ POBLAR FILTRO (Limpiar primero para evitar duplicados)
     const filterEl = document.getElementById('payment-week');
-    if (filterEl && filterEl.options.length <= 1) {
-      filterEl.innerHTML = '<option value="all">📅 Todas las semanas</option>';
-      for (let w = 1; w <= totalWeeks; w++) {
-        filterEl.innerHTML += `<option value="${w}">Semana ${w}</option>`;
+    if (filterEl) {
+      // Solo repoblar si no tiene opciones o si el valor actual no es válido
+      if (filterEl.options.length <= 1 || !numMatch) {
+        const currentSelection = filterEl.value;
+        filterEl.innerHTML = '<option value="all">📅 Todas las semanas</option>';
+        for (let w = 1; w <= totalWeeks; w++) {
+          // ✅ IMPORTANTE: El value debe ser SOLO el número
+          filterEl.innerHTML += `<option value="${w}">Semana ${w}</option>`;
+        }
+        // Restaurar selección si es posible
+        if (currentSelection && filterEl.querySelector(`option[value="${currentSelection}"]`)) {
+          filterEl.value = currentSelection;
+        } else if (selectedWeek) {
+          filterEl.value = selectedWeek;
+        }
       }
     }
 
-    // 1️⃣ ENCABEZADO (solo semanas visibles)
+    // ✅ 2. RENDERIZADO ENCABEZADO
     wh.innerHTML = weeksToShow.map(w => {
       const receiver = activeP.find(p => p.nextTurn === w);
       const isCurrent = w === currentWeek;
       const dateStr = getWeekDate(t.startDate, w, t.frequency);
-      
       return `
         <div class="week-cell ${isCurrent ? 'current' : ''}" data-week="${w}">
           <span class="week-num">S${w}</span>
           <span class="week-date">${dateStr}</span>
-          ${receiver ? `<small style="color:var(--success);font-size:0.65rem;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">🎁 ${escapeHtml(receiver.name.split(' ')[0])}</small>` : ''}
+          ${receiver ? `<small style="color:var(--success);font-size:0.65rem;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">🎁 ${receiver.name.split(' ')[0]}</small>` : ''}
         </div>
       `;
     }).join('');
 
-    // 2️⃣ CUERPO (participantes)
+    // ✅ 3. RENDERIZADO CUERPO
     mb.innerHTML = activeP.map(p => {
       const paidWeeks = Array.isArray(p.paidWeeks) ? p.paidWeeks : [];
       const totalPaid = paidWeeks.length * amount;
@@ -398,8 +409,7 @@
         `;
       }).join('');
 
-      // Badge de filtro activo
-      const filterBadge = isValidWeek 
+      const filterBadge = selectedWeek 
         ? `<small style="color:var(--primary);font-size:0.7rem;display:block;margin-top:4px;">🔍 Semana ${selectedWeek}</small>` 
         : '';
 
@@ -407,8 +417,8 @@
         <div class="matrix-row" data-participant="${p.id}">
           <div class="participant-cell sticky-left ${isReceiverNow ? 'highlight-row' : ''}">
             <div class="participant-info">
-              ${escapeHtml(p.name || 'Sin nombre')}
-              <small>Turno #${p.nextTurn || '?'} ${filterBadge}</small>
+              ${escapeHtml(p.name)}
+              <small>Turno #${p.nextTurn} ${filterBadge}</small>
             </div>
           </div>
           <div class="weeks-grid">${cells}</div>
@@ -417,7 +427,7 @@
       `;
     }).join('');
 
-    // 3️⃣ FOOTER (totales)
+    // ✅ 4. RENDERIZADO FOOTER
     wt.innerHTML = weeksToShow.map(w => {
       const count = activeP.filter(p => Array.isArray(p.paidWeeks) && p.paidWeeks.includes(w)).length;
       return `<div class="week-total" style="text-align:center;padding-top:8px;">${formatCurrency(count * amount, currency)}</div>`;
@@ -429,8 +439,6 @@
       return s + (pc * amount);
     }, 0);
     gt.textContent = formatCurrency(grand, currency);
-    
-    console.log('✅ Matrix renderizada:', { weeksToShow, filterValue, selectedWeek, isValidWeek });
   }
   function renderPayments(wf='all') {
     const isM=document.body.classList.contains('payments-matrix-view');
@@ -518,15 +526,15 @@
     el.paymentWeek?.addEventListener('change',e=>renderPayments(e.target.value));
     el.markPaidBtn?.addEventListener('click',()=>{const w=el.paymentWeek?.value||'all';showToast(`🔧 Función "Marcar pagado masivo" para ${w} - Próximamente`,'info');});
 
-    // 🎯 FILTRO DE SEMANAS: Re-renderiza con el valor NUMÉRICO
+    // 🎯 FILTRO DE SEMANAS: Pasa el valor directo (ej: "1")
     el.paymentWeek?.addEventListener('change', (e) => {
-      const value = e.target.value; // "all", "1", "2", etc.
-      console.log('🎯 Filtro cambiado a:', value);
-      renderPaymentsMatrix(value);
+      const val = e.target.value;
+      console.log('🎯 Filtro:', val);
+      renderPaymentsMatrix(val);
       
-      // Scroll suave si es una semana específica
-      if (value !== 'all') {
-        const header = document.querySelector(`.week-cell[data-week="${value}"]`);
+      // Scroll suave
+      if (val !== 'all') {
+        const header = document.querySelector(`.week-cell[data-week="${val}"]`);
         header?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
       }
     });
