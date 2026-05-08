@@ -105,7 +105,33 @@
       </div>
     </main>
   </section>
-
+<!-- Modal Agregar Participante -->
+<div id="modal-participant" class="modal-overlay hidden" role="dialog" aria-modal="true">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>👥 Nuevo Participante</h3>
+      <button class="icon-btn modal-close" aria-label="Cerrar">✕</button>
+    </div>
+    <form id="form-participant" class="modal-form">
+      <div class="form-group">
+        <label for="p-name">Nombre completo *</label>
+        <input type="text" id="p-name" required minlength="2" maxlength="50" placeholder="Ej: Ana López">
+      </div>
+      <div class="form-group">
+        <label for="p-phone">Teléfono (10 dígitos) *</label>
+        <input type="tel" id="p-phone" required pattern="[0-9]{10}" placeholder="5551234567" inputmode="numeric">
+      </div>
+      <div class="form-group">
+        <label for="p-turn">Número de turno *</label>
+        <input type="number" id="p-turn" required min="1" max="50" value="1">
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn-secondary modal-close">Cancelar</button>
+        <button type="submit" class="btn-primary">✅ Agregar</button>
+      </div>
+    </form>
+  </div>
+</div>
   <script src="./js/app.js"></script>
 </body>
 </html>
