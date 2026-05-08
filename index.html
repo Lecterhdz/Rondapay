@@ -80,7 +80,126 @@
           <button id="mark-paid" class="btn-success">✅ Marcar como pagado</button>
         </div>
         <div id="payments-list" class="list-container"></div>
-      </div>      
+      </div> 
+    <!-- Vista: Crear Nueva Tanda -->
+    <div class="view" id="new-tanda-view">
+      <div class="page-header">
+        <h3>➕ Nueva Tanda</h3>
+        <p class="subtitle">Configura los parámetros de tu ronda de ahorro</p>
+      </div>
+      
+      <form id="form-new-tanda" class="tanda-form">
+        <!-- Sección 1: Información Básica -->
+        <fieldset class="form-section">
+          <legend>📋 Información Básica</legend>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="t-name">Nombre de la tanda *</label>
+              <input type="text" id="t-name" required maxlength="50" placeholder="Ej: Tanda Oficina 2026">
+              <small>Identificador único para esta ronda</small>
+            </div>
+          </div>
+          
+          <div class="form-row two-cols">
+            <div class="form-group">
+              <label for="t-amount">Monto por persona *</label>
+              <div class="input-with-prefix">
+                <span class="currency-prefix">$</span>
+                <input type="number" id="t-amount" required min="10" max="100000" step="0.01" placeholder="1000">
+              </div>
+              <small>Mínimo $10 • Sin decimales recomendado</small>
+            </div>
+            
+            <div class="form-group">
+              <label for="t-currency">Moneda *</label>
+              <select id="t-currency" required>
+                <option value="MXN">🇲🇽 MXN - Peso Mexicano</option>
+                <option value="USD">🇺🇸 USD - Dólar Americano</option>
+                <option value="EUR">🇪🇺 EUR - Euro</option>
+                <option value="COP">🇨🇴 COP - Peso Colombiano</option>
+                <option value="PEN">🇵🇪 PEN - Sol Peruano</option>
+              </select>
+            </div>
+          </div>
+        </fieldset>
+        
+        <!-- Sección 2: Frecuencia y Duración -->
+        <fieldset class="form-section">
+          <legend>📅 Frecuencia y Duración</legend>
+          
+          <div class="form-row two-cols">
+            <div class="form-group">
+              <label for="t-frequency">Frecuencia de pago *</label>
+              <select id="t-frequency" required>
+                <option value="weekly">🗓️ Semanal (cada 7 días)</option>
+                <option value="biweekly">📆 Quincenal (cada 15 días)</option>
+                <option value="monthly">📅 Mensual (cada 30 días)</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label for="t-participants">Número de participantes *</label>
+              <input type="number" id="t-participants" required min="2" max="50" value="5">
+              <small>Entre 2 y 50 personas</small>
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="t-start">Fecha de inicio *</label>
+              <input type="date" id="t-start" required>
+              <small>Próximo pago: <span id="preview-next-date">-</span></small>
+            </div>
+          </div>
+          
+          <!-- Preview de duración -->
+          <div class="preview-card">
+            <h4>📊 Vista Previa</h4>
+            <div class="preview-grid">
+              <div class="preview-item">
+                <span class="preview-label">Duración total</span>
+                <span class="preview-value" id="preview-duration">10 semanas</span>
+              </div>
+              <div class="preview-item">
+                <span class="preview-label">Recaudación por semana</span>
+                <span class="preview-value" id="preview-weekly">$5,000</span>
+              </div>
+              <div class="preview-item">
+                <span class="preview-label">Total recaudado</span>
+                <span class="preview-value" id="preview-total">$50,000</span>
+              </div>
+              <div class="preview-item">
+                <span class="preview-label">Fecha de finalización</span>
+                <span class="preview-value" id="preview-end-date">-</span>
+              </div>
+            </div>
+          </div>
+        </fieldset>
+        
+        <!-- Sección 3: Participantes Iniciales (Opcional) -->
+        <fieldset class="form-section">
+          <legend>👥 Participantes (Opcional)</legend>
+          <p class="help-text">Agrega participantes ahora o hazlo después desde la lista</p>
+          
+          <div id="participants-preview" class="participants-preview">
+            <div class="empty-preview">Los participantes aparecerán aquí...</div>
+          </div>
+          
+          <button type="button" id="btn-add-participant-inline" class="btn-outline">
+            + Agregar participante rápido
+          </button>
+        </fieldset>
+        
+        <!-- Acciones -->
+        <div class="form-actions">
+          <button type="button" class="btn-secondary" data-view="dashboard">Cancelar</button>
+          <button type="submit" class="btn-primary btn-lg">
+            ✅ Crear Tanda y Comenzar
+          </button>
+        </div>
+      </form>
+    </div>      
     </main>
 
     <button id="show-menu-btn" class="fab-menu hidden" aria-label="Mostrar menú">☰</button>
@@ -132,6 +251,23 @@
     </form>
   </div>
 </div>
+<!-- Modal Confirmar Creación -->
+<div id="modal-confirm-tanda" class="modal-overlay hidden" role="dialog" aria-modal="true">
+  <div class="modal-card modal-confirm">
+    <div class="modal-icon">🎉</div>
+    <h3>¿Crear esta tanda?</h3>
+    <div class="confirm-summary">
+      <p><strong>Nombre:</strong> <span id="confirm-name">-</span></p>
+      <p><strong>Monto:</strong> <span id="confirm-amount">-</span></p>
+      <p><strong>Participantes:</strong> <span id="confirm-participants">-</span></p>
+      <p><strong>Duración:</strong> <span id="confirm-duration">-</span></p>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn-secondary modal-close">Editar</button>
+      <button type="button" class="btn-primary" id="btn-confirm-create">✅ Sí, Crear</button>
+    </div>
+  </div>
+</div>  
   <script src="./js/app.js"></script>
 </body>
 </html>
