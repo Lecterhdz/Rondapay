@@ -2,272 +2,412 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#4f46e5">
-  <meta name="apple-mobile-web-app-capable" content="yes">
+  
+  <!-- 🎯 Viewport optimizado para PWA -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  
+  <!-- 🎨 Theme y colores -->
+  <meta name="theme-color" content="#4f46e5" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">
+  <meta name="color-scheme" content="light dark">
+  
+  <!-- 📱 PWA Meta Tags -->
   <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="manifest" href="manifest.json">
-  <title id="app-title">Cargando...</title>
-  <link rel="stylesheet" href="./css/style.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta name="apple-mobile-web-app-title" content="RondaPay">
+  <meta name="application-name" content="RondaPay">
+  
+  <!-- 🔍 SEO y Social -->
+  <meta name="description" content="RondaPay - Gestiona tus tandas y ahorros grupales de forma simple y segura">
+  <meta name="keywords" content="tanda, ahorro, ronda, finanzas, grupo, pagos">
+  <meta name="author" content="RondaPay">
+  <meta name="robots" content="index, follow">
+  
+  <!-- 🌐 Open Graph / Twitter Card -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="RondaPay - App de Tandas">
+  <meta property="og:description" content="Organiza tus rondas de ahorro sin complicaciones">
+  <meta property="og:image" content="./icon-512.png">
+  <meta property="og:url" content="https://lecterhdz.github.io/Rondapay/">
+  <meta name="twitter:card" content="summary_large_image">
+  
+  <!-- 🔗 Manifest y PWA -->
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+  <link rel="apple-touch-icon" href="./icon-192.png">
+  
+  <!-- ⚡ Resource Hints - Preconexiones -->
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+  
+  <!-- 📊 Chart.js - Carga optimizada -->
+  <link rel="preload" href="https://cdn.jsdelivr.net/npm/chart.js" as="script" crossorigin>
+  
+  <!-- 🎨 CSS Crítico inline (opcional para FCP más rápido) -->
+  <style>
+    /* Critical CSS: Above-the-fold styles only */
+    :root{--bg:#f8fafc;--surface:#fff;--text:#0f172a;--primary:#4f46e5;--border:#e2e8f0;--shadow:0 4px 6px -1px rgba(0,0,0,.1)}
+    .theme-dark{--bg:#0f172a;--surface:#1e293b;--text:#f8fafc;--border:#334155;--shadow:0 4px 6px -1px rgba(0,0,0,.5)}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;-webkit-font-smoothing:antialiased}
+    .screen{display:none;min-height:100vh;flex-direction:column}
+    .screen.active{display:flex}
+    .hidden{display:none!important}
+    #login-screen{align-items:center;justify-content:center}
+    .login-card{background:var(--surface);padding:2rem;border-radius:16px;box-shadow:var(--shadow);width:90%;max-width:320px}
+    .login-card input{width:100%;padding:.75rem;margin:1rem 0;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text)}
+    .login-card button{background:var(--primary);color:#fff;border:none;padding:.75rem;border-radius:8px;cursor:pointer;width:100%;font-weight:500}
+    header{display:flex;justify-content:space-between;align-items:center;padding:1rem;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50}
+    .icon-btn{background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--text);padding:.25rem}
+    #page-title{font-size:1.1rem;font-weight:600}
+    main{flex:1;padding:1rem;overflow-y:auto;contain:content}
+    .view{display:none;animation:fadeIn .2s ease}
+    .view.active{display:block}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+    @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+    /* Loading skeleton para charts */
+    .chart-card{background:var(--surface);padding:1rem;border-radius:12px;box-shadow:var(--shadow);min-height:200px}
+    .chart-card canvas{content-visibility:auto;contain-intrinsic-size:300px 250px}
+  </style>
+  
+  <!-- 🎨 CSS Principal - Carga diferida no crítica -->
+  <link rel="stylesheet" href="./css/style.css" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="./css/style.css"></noscript>
+  
+  <!-- 🏷️ Título dinámico -->
+  <title id="app-title">RondaPay</title>
+  
+  <!-- 🔒 Security Headers (si tu hosting lo soporta) -->
+  <!-- <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self';"> -->
 </head>
 <body>
-  <!-- Pantalla de Login -->
-  <section id="login-screen" class="screen active">
-    <div class="login-card">
-      <h1 id="app-logo">🤝 RondaPay</h1>
-      <p>Ingresa tu clave de licencia para continuar</p>
-      <input type="password" id="license-input" placeholder="Clave de licencia" autocomplete="off">
-      <button id="login-btn">Ingresar</button>
-      <p id="login-error" class="error hidden">Clave inválida</p>
+  <!-- 🚀 Skip Link para accesibilidad -->
+  <a href="#main-content" class="skip-link">Saltar al contenido principal</a>
+  
+  <!-- 🔐 Pantalla de Login -->
+  <section id="login-screen" class="screen active" aria-label="Pantalla de inicio de sesión">
+    <div class="login-card" role="form" aria-labelledby="app-logo">
+      <h1 id="app-logo" class="sr-only">RondaPay</h1>
+      <p class="text-center">Ingresa tu clave de licencia para continuar</p>
+      <form id="login-form" novalidate>
+        <label for="license-input" class="sr-only">Clave de licencia</label>
+        <input type="password" id="license-input" placeholder="Clave de licencia" autocomplete="current-password" inputmode="text" aria-required="true">
+        <button type="submit" id="login-btn">Ingresar</button>
+      </form>
+      <p id="login-error" class="error hidden" role="alert" aria-live="polite">Clave inválida</p>
     </div>
   </section>
 
-  <!-- App Principal -->
-  <section id="main-app" class="screen">
-    <header>
-      <button id="menu-toggle" class="icon-btn" aria-label="Menú">☰</button>
-      <h2 id="page-title">Mi Tanda</h2>
-      <button id="theme-toggle" class="icon-btn" aria-label="Cambiar tema">🌙</button>
+  <!-- 🏠 App Principal -->
+  <section id="main-app" class="screen" aria-label="Aplicación principal">
+    <!-- Header sticky optimizado -->
+    <header role="banner">
+      <button id="menu-toggle" class="icon-btn" aria-label="Abrir menú" aria-expanded="false" aria-controls="hamburger-menu">☰</button>
+      <h2 id="page-title" class="sr-only">Mi Tanda</h2>
+      <button id="theme-toggle" class="icon-btn" aria-label="Cambiar tema claro/oscuro" aria-pressed="false">🌙</button>
     </header>
 
-    <nav id="hamburger-menu" class="hamburger">
+    <!-- 🍔 Menú Hamburguesa con overlay -->
+    <nav id="hamburger-menu" class="hamburger" role="navigation" aria-label="Menú principal">
       <div class="menu-header">
         <h3>Menú</h3>
-        <button id="hide-menu-btn" class="icon-btn" aria-label="Ocultar menú">✕</button>
+        <button id="hide-menu-btn" class="icon-btn" aria-label="Cerrar menú">✕</button>
       </div>
-      <ul>
-        <li><a href="#" data-view="dashboard">📊 Dashboard</a></li>
-        <li><a href="#" data-view="participants">👥 Participantes</a></li>
-        <li><a href="#" data-view="payments">💳 Pagos</a></li>
-        <li><a href="#" id="logout-btn">🔒 Cerrar sesión</a></li>
+      <ul role="menubar">
+        <li role="none"><a href="#" data-view="dashboard" role="menuitem">📊 Dashboard</a></li>
+        <li role="none"><a href="#" data-view="participants" role="menuitem">👥 Participantes</a></li>
+        <li role="none"><a href="#" data-view="payments" role="menuitem">💳 Pagos</a></li>
+        <li role="none"><a href="#" data-view="new-tanda" role="menuitem">➕ Nueva Tanda</a></li>
+        <li role="none"><a href="#" id="logout-btn" role="menuitem">🔒 Cerrar sesión</a></li>
       </ul>
-      <button id="pwa-install" class="btn-primary hidden">📲 Instalar App</button>
+      <button id="pwa-install" class="btn-primary hidden" aria-label="Instalar aplicación">📲 Instalar App</button>
     </nav>
+    <!-- Overlay para cerrar menú al hacer click fuera -->
+    <div id="menu-overlay" class="menu-overlay hidden" aria-hidden="true"></div>
 
-    <main id="content">
-      <!-- Dashboard por defecto -->
-      <div class="view active" id="dashboard-view">
-        <h3>Estado de la Tanda</h3>
+    <!-- 📄 Contenido Principal -->
+    <main id="content" role="main" tabindex="-1">
+      
+      <!-- 📊 Dashboard View -->
+      <div class="view active" id="dashboard-view" aria-labelledby="dashboard-title">
+        <h3 id="dashboard-title" class="sr-only">Estado de la Tanda</h3>
         <div class="charts-grid">
-          <div class="chart-card">
-            <canvas id="status-chart"></canvas>
-          </div>
-          <div class="chart-card">
-            <canvas id="progress-chart"></canvas>
-          </div>
+          <article class="chart-card" aria-label="Gráfico de estado de pagos">
+            <canvas id="status-chart" role="img" aria-label="Distribución de pagos: pagado, pendiente, atrasado"></canvas>
+          </article>
+          <article class="chart-card" aria-label="Gráfico de progreso semanal">
+            <canvas id="progress-chart" role="img" aria-label="Progreso de recaudación por semana"></canvas>
+          </article>
         </div>
-      </div>
-      <div class="view" id="participants-view">
-        <h3>👥 Participantes</h3>
-        <div class="toolbar">
-          <input type="text" id="search-participant" placeholder="Buscar participante...">
-          <button id="add-participant" class="btn-primary" style="width:auto;padding:0.5rem 1rem;">+ Agregar</button>
-        </div>
-        <div id="participants-list" class="list-container"></div>
-      </div> 
-      <div class="view" id="payments-view">
-        <h3>💳 Historial de Pagos</h3>
-        <div class="toolbar">
-          <select id="payment-week">
-            <option value="all">Todas las semanas</option>
-            <option value="1">Semana 1</option>
-            <option value="2">Semana 2</option>
-            <option value="3">Semana 3</option>
-          </select>
-          <button id="mark-paid" class="btn-success">✅ Marcar como pagado</button>
-        </div>
-        <div id="payments-list" class="list-container"></div>
-      </div> 
-    <!-- Vista: Crear Nueva Tanda -->
-    <div class="view" id="new-tanda-view">
-      <div class="page-header">
-        <h3>➕ Nueva Tanda</h3>
-        <p class="subtitle">Configura los parámetros de tu ronda de ahorro</p>
       </div>
       
-      <form id="form-new-tanda" class="tanda-form">
-        <!-- Sección 1: Información Básica -->
-        <fieldset class="form-section">
-          <legend>📋 Información Básica</legend>
-          
-          <div class="form-row">
-            <div class="form-group">
-              <label for="t-name">Nombre de la tanda *</label>
-              <input type="text" id="t-name" required maxlength="50" placeholder="Ej: Tanda Oficina 2026">
-              <small>Identificador único para esta ronda</small>
-            </div>
-          </div>
-          
-          <div class="form-row two-cols">
-            <div class="form-group">
-              <label for="t-amount">Monto por persona *</label>
-              <div class="input-with-prefix">
-                <span class="currency-prefix">$</span>
-                <input type="number" id="t-amount" required min="10" max="100000" step="0.01" placeholder="1000">
-              </div>
-              <small>Mínimo $10 • Sin decimales recomendado</small>
-            </div>
-            
-            <div class="form-group">
-              <label for="t-currency">Moneda *</label>
-              <select id="t-currency" required>
-                <option value="MXN">🇲🇽 MXN - Peso Mexicano</option>
-                <option value="USD">🇺🇸 USD - Dólar Americano</option>
-                <option value="EUR">🇪🇺 EUR - Euro</option>
-                <option value="COP">🇨🇴 COP - Peso Colombiano</option>
-                <option value="PEN">🇵🇪 PEN - Sol Peruano</option>
-              </select>
-            </div>
-          </div>
-        </fieldset>
-        
-        <!-- Sección 2: Frecuencia y Duración -->
-        <fieldset class="form-section">
-          <legend>📅 Frecuencia y Duración</legend>
-          
-          <div class="form-row two-cols">
-            <div class="form-group">
-              <label for="t-frequency">Frecuencia de pago *</label>
-              <select id="t-frequency" required>
-                <option value="weekly">🗓️ Semanal (cada 7 días)</option>
-                <option value="biweekly">📆 Quincenal (cada 15 días)</option>
-                <option value="monthly">📅 Mensual (cada 30 días)</option>
-              </select>
-            </div>
-            
-            <div class="form-group">
-              <label for="t-participants">Número de participantes *</label>
-              <input type="number" id="t-participants" required min="2" max="50" value="5">
-              <small>Entre 2 y 50 personas</small>
-            </div>
-          </div>
-          
-          <div class="form-row">
-            <div class="form-group">
-              <label for="t-start">Fecha de inicio *</label>
-              <input type="date" id="t-start" required>
-              <small>Próximo pago: <span id="preview-next-date">-</span></small>
-            </div>
-          </div>
-          
-          <!-- Preview de duración -->
-          <div class="preview-card">
-            <h4>📊 Vista Previa</h4>
-            <div class="preview-grid">
-              <div class="preview-item">
-                <span class="preview-label">Duración total</span>
-                <span class="preview-value" id="preview-duration">10 semanas</span>
-              </div>
-              <div class="preview-item">
-                <span class="preview-label">Recaudación por semana</span>
-                <span class="preview-value" id="preview-weekly">$5,000</span>
-              </div>
-              <div class="preview-item">
-                <span class="preview-label">Total recaudado</span>
-                <span class="preview-value" id="preview-total">$50,000</span>
-              </div>
-              <div class="preview-item">
-                <span class="preview-label">Fecha de finalización</span>
-                <span class="preview-value" id="preview-end-date">-</span>
-              </div>
-            </div>
-          </div>
-        </fieldset>
-        
-        <!-- Sección 3: Participantes Iniciales (Opcional) -->
-        <fieldset class="form-section">
-          <legend>👥 Participantes (Opcional)</legend>
-          <p class="help-text">Agrega participantes ahora o hazlo después desde la lista</p>
-          
-          <div id="participants-preview" class="participants-preview">
-            <div class="empty-preview">Los participantes aparecerán aquí...</div>
-          </div>
-          
-          <button type="button" id="btn-add-participant-inline" class="btn-outline">
-            + Agregar participante rápido
-          </button>
-        </fieldset>
-        
-        <!-- Acciones -->
-        <div class="form-actions">
-          <button type="button" class="btn-secondary" data-view="dashboard">Cancelar</button>
-          <button type="submit" class="btn-primary btn-lg">
-            ✅ Crear Tanda y Comenzar
-          </button>
+      <!-- 👥 Participants View -->
+      <div class="view" id="participants-view" aria-labelledby="participants-title">
+        <h3 id="participants-title">👥 Participantes</h3>
+        <div class="toolbar" role="search">
+          <label for="search-participant" class="sr-only">Buscar participante</label>
+          <input type="search" id="search-participant" placeholder="Buscar por nombre o teléfono..." aria-label="Buscar participante">
+          <button id="add-participant" class="btn-primary" style="width:auto;padding:0.5rem 1rem;" aria-label="Agregar nuevo participante">+ Agregar</button>
         </div>
-      </form>
-    </div>      
+        <div id="participants-list" class="list-container" role="list" aria-live="polite"></div>
+      </div> 
+      
+      <!-- 💳 Payments View -->
+      <div class="view" id="payments-view" aria-labelledby="payments-title">
+        <h3 id="payments-title">💳 Historial de Pagos</h3>
+        <div class="toolbar">
+          <label for="payment-week" class="sr-only">Filtrar por semana</label>
+          <select id="payment-week" aria-label="Filtrar pagos por semana">
+            <option value="all">Todas las semanas</option>
+            <!-- Se llena dinámicamente -->
+          </select>
+          <button id="mark-paid" class="btn-success" aria-label="Marcar pago seleccionado como realizado">✅ Marcar pagado</button>
+        </div>
+        <div id="payments-list" class="list-container" role="list" aria-live="polite"></div>
+      </div> 
+      
+      <!-- ➕ New Tanda View (Lazy-loaded content) -->
+      <div class="view" id="new-tanda-view" aria-labelledby="new-tanda-title" inert>
+        <div class="page-header">
+          <h3 id="new-tanda-title">➕ Nueva Tanda</h3>
+          <p class="subtitle">Configura los parámetros de tu ronda de ahorro</p>
+        </div>
+        
+        <form id="form-new-tanda" class="tanda-form" novalidate>
+          <!-- Sección 1: Información Básica -->
+          <fieldset class="form-section">
+            <legend>📋 Información Básica</legend>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="t-name">Nombre de la tanda <abbr title="Requerido">*</abbr></label>
+                <input type="text" id="t-name" name="t-name" required maxlength="50" placeholder="Ej: Tanda Oficina 2026" autocomplete="off">
+                <small>Identificador único para esta ronda</small>
+              </div>
+            </div>
+            <div class="form-row two-cols">
+              <div class="form-group">
+                <label for="t-amount">Monto por persona <abbr title="Requerido">*</abbr></label>
+                <div class="input-with-prefix">
+                  <span class="currency-prefix" aria-hidden="true">$</span>
+                  <input type="number" id="t-amount" name="t-amount" required min="10" max="100000" step="0.01" placeholder="1000" inputmode="decimal">
+                </div>
+                <small>Mínimo $10 • Sin decimales recomendado</small>
+              </div>
+              <div class="form-group">
+                <label for="t-currency">Moneda <abbr title="Requerido">*</abbr></label>
+                <select id="t-currency" name="t-currency" required>
+                  <option value="MXN">🇲🇽 MXN - Peso Mexicano</option>
+                  <option value="USD">🇺🇸 USD - Dólar Americano</option>
+                  <option value="EUR">🇪🇺 EUR - Euro</option>
+                  <option value="COP">🇨🇴 COP - Peso Colombiano</option>
+                  <option value="PEN">🇵🇪 PEN - Sol Peruano</option>
+                </select>
+              </div>
+            </div>
+          </fieldset>
+          
+          <!-- Sección 2: Frecuencia y Duración -->
+          <fieldset class="form-section">
+            <legend>📅 Frecuencia y Duración</legend>
+            <div class="form-row two-cols">
+              <div class="form-group">
+                <label for="t-frequency">Frecuencia de pago <abbr title="Requerido">*</abbr></label>
+                <select id="t-frequency" name="t-frequency" required>
+                  <option value="weekly">🗓️ Semanal (cada 7 días)</option>
+                  <option value="biweekly">📆 Quincenal (cada 15 días)</option>
+                  <option value="monthly">📅 Mensual (cada 30 días)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="t-participants">Número de participantes <abbr title="Requerido">*</abbr></label>
+                <input type="number" id="t-participants" name="t-participants" required min="2" max="50" value="5" inputmode="numeric">
+                <small>Entre 2 y 50 personas</small>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="t-start">Fecha de inicio <abbr title="Requerido">*</abbr></label>
+                <input type="date" id="t-start" name="t-start" required>
+                <small>Próximo pago: <span id="preview-next-date">-</span></small>
+              </div>
+            </div>
+            
+            <!-- Preview Card -->
+            <div class="preview-card" aria-live="polite">
+              <h4>📊 Vista Previa</h4>
+              <div class="preview-grid">
+                <div class="preview-item"><span class="preview-label">Duración total</span><span class="preview-value" id="preview-duration">-</span></div>
+                <div class="preview-item"><span class="preview-label">Recaudación/semana</span><span class="preview-value" id="preview-weekly">-</span></div>
+                <div class="preview-item"><span class="preview-label">Total recaudado</span><span class="preview-value" id="preview-total">-</span></div>
+                <div class="preview-item"><span class="preview-label">Finaliza</span><span class="preview-value" id="preview-end-date">-</span></div>
+              </div>
+            </div>
+          </fieldset>
+          
+          <!-- Acciones -->
+          <div class="form-actions">
+            <button type="button" class="btn-secondary" data-view="dashboard">Cancelar</button>
+            <button type="submit" class="btn-primary btn-lg">✅ Crear Tanda y Comenzar</button>
+          </div>
+        </form>
+      </div>
+      
     </main>
 
-    <button id="show-menu-btn" class="fab-menu hidden" aria-label="Mostrar menú">☰</button>
+    <!-- 🎯 FAB para mostrar menú en móvil -->
+    <button id="show-menu-btn" class="fab-menu hidden" aria-label="Mostrar menú" aria-expanded="false">☰</button>
   </section>
 
-  <!-- Panel de Admin (solo con ?admin=true) -->
-  <section id="admin-panel" class="screen hidden">
-    <header>
-      <button id="admin-back" class="icon-btn">←</button>
+  <!-- ⚙️ Panel de Admin (solo con ?admin=true) -->
+  <section id="admin-panel" class="screen hidden" aria-label="Panel de administración" inert>
+    <header role="banner">
+      <button id="admin-back" class="icon-btn" aria-label="Volver">←</button>
       <h2>Panel de Administración</h2>
-      <div></div>
+      <div aria-hidden="true"></div>
     </header>
-    <main>
+    <main role="main">
       <h3>Control Global de Rondas</h3>
       <div class="charts-grid">
-        <div class="chart-card">
-          <canvas id="admin-revenue-chart"></canvas>
-        </div>
-        <div class="chart-card">
-          <canvas id="admin-attendance-chart"></canvas>
-        </div>
+        <article class="chart-card">
+          <canvas id="admin-revenue-chart" role="img" aria-label="Gráfico de ingresos mensuales"></canvas>
+        </article>
+        <article class="chart-card">
+          <canvas id="admin-attendance-chart" role="img" aria-label="Gráfico de asistencia por grupo"></canvas>
+        </article>
       </div>
     </main>
   </section>
-<!-- Modal Agregar Participante -->
-<div id="modal-participant" class="modal-overlay hidden" role="dialog" aria-modal="true">
-  <div class="modal-card">
-    <div class="modal-header">
-      <h3>👥 Nuevo Participante</h3>
-      <button class="icon-btn modal-close" aria-label="Cerrar">✕</button>
+
+  <!-- 👥 Modal: Agregar Participante (inert hasta abrir) -->
+  <div id="modal-participant" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-participant-title" inert>
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-participant-title">👥 Nuevo Participante</h3>
+        <button class="icon-btn modal-close" aria-label="Cerrar modal">✕</button>
+      </div>
+      <form id="form-participant" class="modal-form" novalidate>
+        <div class="form-group">
+          <label for="p-name">Nombre completo <abbr title="Requerido">*</abbr></label>
+          <input type="text" id="p-name" name="p-name" required minlength="2" maxlength="50" placeholder="Ej: Ana López" autocomplete="name">
+        </div>
+        <div class="form-group">
+          <label for="p-phone">Teléfono (10 dígitos) <abbr title="Requerido">*</abbr></label>
+          <input type="tel" id="p-phone" name="p-phone" required pattern="[0-9]{10}" placeholder="5551234567" inputmode="numeric" autocomplete="tel">
+        </div>
+        <div class="form-group">
+          <label for="p-turn">Número de turno <abbr title="Requerido">*</abbr></label>
+          <input type="number" id="p-turn" name="p-turn" required min="1" max="50" value="1" inputmode="numeric">
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn-secondary modal-close">Cancelar</button>
+          <button type="submit" class="btn-primary">✅ Agregar</button>
+        </div>
+      </form>
     </div>
-    <form id="form-participant" class="modal-form">
-      <div class="form-group">
-        <label for="p-name">Nombre completo *</label>
-        <input type="text" id="p-name" required minlength="2" maxlength="50" placeholder="Ej: Ana López">
-      </div>
-      <div class="form-group">
-        <label for="p-phone">Teléfono (10 dígitos) *</label>
-        <input type="tel" id="p-phone" required pattern="[0-9]{10}" placeholder="5551234567" inputmode="numeric">
-      </div>
-      <div class="form-group">
-        <label for="p-turn">Número de turno *</label>
-        <input type="number" id="p-turn" required min="1" max="50" value="1">
+  </div>
+
+  <!-- ✅ Modal: Confirmar Creación de Tanda -->
+  <div id="modal-confirm-tanda" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-confirm-title" inert>
+    <div class="modal-card modal-confirm">
+      <div class="modal-icon" aria-hidden="true">🎉</div>
+      <h3 id="modal-confirm-title">¿Crear esta tanda?</h3>
+      <div class="confirm-summary" aria-live="polite">
+        <p><strong>Nombre:</strong> <span id="confirm-name">-</span></p>
+        <p><strong>Monto:</strong> <span id="confirm-amount">-</span></p>
+        <p><strong>Participantes:</strong> <span id="confirm-participants">-</span></p>
+        <p><strong>Duración:</strong> <span id="confirm-duration">-</span></p>
       </div>
       <div class="form-actions">
-        <button type="button" class="btn-secondary modal-close">Cancelar</button>
-        <button type="submit" class="btn-primary">✅ Agregar</button>
+        <button type="button" class="btn-secondary modal-close">Editar</button>
+        <button type="button" class="btn-primary" id="btn-confirm-create">✅ Sí, Crear</button>
       </div>
-    </form>
-  </div>
-</div>
-<!-- Modal Confirmar Creación -->
-<div id="modal-confirm-tanda" class="modal-overlay hidden" role="dialog" aria-modal="true">
-  <div class="modal-card modal-confirm">
-    <div class="modal-icon">🎉</div>
-    <h3>¿Crear esta tanda?</h3>
-    <div class="confirm-summary">
-      <p><strong>Nombre:</strong> <span id="confirm-name">-</span></p>
-      <p><strong>Monto:</strong> <span id="confirm-amount">-</span></p>
-      <p><strong>Participantes:</strong> <span id="confirm-participants">-</span></p>
-      <p><strong>Duración:</strong> <span id="confirm-duration">-</span></p>
-    </div>
-    <div class="form-actions">
-      <button type="button" class="btn-secondary modal-close">Editar</button>
-      <button type="button" class="btn-primary" id="btn-confirm-create">✅ Sí, Crear</button>
     </div>
   </div>
-</div>  
-  <script src="./js/app.js"></script>
+
+  <!-- ✏️ Modal: Editar Participante -->
+  <div id="modal-edit-participant" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-edit-title" inert>
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-edit-title">✏️ Editar Participante</h3>
+        <button class="icon-btn modal-close" aria-label="Cerrar modal">✕</button>
+      </div>
+      <form id="form-edit-participant" class="modal-form" novalidate>
+        <input type="hidden" id="edit-participant-id" name="id">
+        <div class="form-group">
+          <label for="edit-name">Nombre completo <abbr title="Requerido">*</abbr></label>
+          <input type="text" id="edit-name" name="name" required minlength="2" maxlength="50" autocomplete="name">
+        </div>
+        <div class="form-group">
+          <label for="edit-phone">Teléfono (10 dígitos) <abbr title="Requerido">*</abbr></label>
+          <input type="tel" id="edit-phone" name="phone" required pattern="[0-9]{10}" placeholder="5551234567" inputmode="numeric" autocomplete="tel">
+        </div>
+        <div class="form-group">
+          <label for="edit-turn">Número de turno <abbr title="Requerido">*</abbr></label>
+          <input type="number" id="edit-turn" name="turn" required min="1" max="50" inputmode="numeric">
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn-secondary modal-close">Cancelar</button>
+          <button type="submit" class="btn-primary">💾 Guardar Cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 📦 Scripts optimizados -->
+  <!-- Chart.js con defer y crossorigin -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js" defer crossorigin="anonymous"></script>
+  
+  <!-- App JS principal con defer -->
+  <script src="./js/app.js" defer type="module"></script>
+  
+  <!-- 🚀 Inline script para inicialización crítica (mínimo, sin bloquear) -->
+  <script>
+    // Critical JS: Solo lo esencial para evitar FOUC y detectar PWA
+    (function(){
+      // Detectar tema del sistema al cargar
+      const mq = window.matchMedia('(prefers-color-scheme: dark)');
+      const savedTheme = localStorage.getItem('rondapay-theme');
+      if (savedTheme) {
+        document.documentElement.classList.toggle('theme-dark', savedTheme === 'dark');
+      } else if (mq.matches) {
+        document.documentElement.classList.add('theme-dark');
+      }
+      
+      // Detectar si ya está instalada como PWA
+      if (window.matchMedia('(display-mode: standalone)').matches) {
+        document.getElementById('pwa-install')?.classList.add('hidden');
+      }
+      
+      // Prevenir zoom accidental en inputs en iOS
+      document.addEventListener('touchstart', function(){}, {passive:true});
+      
+      // Registrar service worker temprano
+      if ('serviceWorker' in navigator && location.protocol === 'https:') {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js').catch(console.error);
+        });
+      }
+    })();
+  </script>
+  
+  <!-- 🎨 Estilos para utilidades críticas (no bloqueantes) -->
+  <style>
+    /* Screen reader only */
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    /* Skip link */
+    .skip-link{position:absolute;top:-40px;left:0;background:var(--primary);color:#fff;padding:8px 16px;z-index:100;text-decoration:none;border-radius:0 0 8px 8px;transition:top .2s}
+    .skip-link:focus{top:0}
+    /* Menu overlay */
+    .menu-overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:90;backdrop-filter:blur(2px)}
+    .menu-overlay.hidden{display:none}
+    /* Inert polyfill visual */
+    [inert]{opacity:.6;pointer-events:none;user-select:none}
+    /* Loading state para canvas */
+    canvas:not([width]){min-height:200px;background:linear-gradient(90deg,var(--border) 25%,var(--surface) 50%,var(--border) 75%);background-size:200% 100%;animation:loading 1.5s infinite}
+    @keyframes loading{0%{background-position:200% 0}100%{background-position:-200% 0}}
+    /* Print styles */
+    @media print{.no-print{display:none!important}}
+  </style>
 </body>
 </html>
