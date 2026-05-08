@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/manifest.json">
+  <title id="app-title">Cargando...</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <!-- Pantalla de Login -->
+  <section id="login-screen" class="screen active">
+    <div class="login-card">
+      <h1 id="app-logo">🤝 RondaPay</h1>
+      <p>Ingresa tu clave de licencia para continuar</p>
+      <input type="password" id="license-input" placeholder="Clave de licencia" autocomplete="off">
+      <button id="login-btn">Ingresar</button>
+      <p id="login-error" class="error hidden">Clave inválida</p>
+    </div>
+  </section>
+
+  <!-- App Principal -->
+  <section id="main-app" class="screen">
+    <header>
+      <button id="menu-toggle" class="icon-btn" aria-label="Menú">☰</button>
+      <h2 id="page-title">Mi Tanda</h2>
+      <button id="theme-toggle" class="icon-btn" aria-label="Cambiar tema">🌙</button>
+    </header>
+
+    <nav id="hamburger-menu" class="hamburger">
+      <div class="menu-header">
+        <h3>Menú</h3>
+        <button id="hide-menu-btn" class="icon-btn" aria-label="Ocultar menú">✕</button>
+      </div>
+      <ul>
+        <li><a href="#" data-view="dashboard">📊 Dashboard</a></li>
+        <li><a href="#" data-view="participants">👥 Participantes</a></li>
+        <li><a href="#" data-view="payments">💳 Pagos</a></li>
+        <li><a href="#" id="logout-btn">🔒 Cerrar sesión</a></li>
+      </ul>
+      <button id="pwa-install" class="btn-primary hidden">📲 Instalar App</button>
+    </nav>
+
+    <main id="content">
+      <!-- Dashboard por defecto -->
+      <div class="view active" id="dashboard-view">
+        <h3>Estado de la Tanda</h3>
+        <div class="charts-grid">
+          <div class="chart-card">
+            <canvas id="status-chart"></canvas>
+          </div>
+          <div class="chart-card">
+            <canvas id="progress-chart"></canvas>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <button id="show-menu-btn" class="fab-menu hidden" aria-label="Mostrar menú">☰</button>
+  </section>
+
+  <!-- Panel de Admin (solo con ?admin=true) -->
+  <section id="admin-panel" class="screen hidden">
+    <header>
+      <button id="admin-back" class="icon-btn">←</button>
+      <h2>Panel de Administración</h2>
+      <div></div>
+    </header>
+    <main>
+      <h3>Control Global de Rondas</h3>
+      <div class="charts-grid">
+        <div class="chart-card">
+          <canvas id="admin-revenue-chart"></canvas>
+        </div>
+        <div class="chart-card">
+          <canvas id="admin-attendance-chart"></canvas>
+        </div>
+      </div>
+    </main>
+  </section>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
