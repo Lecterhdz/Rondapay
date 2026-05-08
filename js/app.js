@@ -110,8 +110,19 @@
     return {'active':'✅ Activo','pending':'⏳ Pendiente','inactive':'❌ Inactivo'}[s]||s;
   }
   function getCurrencySymbol(c) { return {MXN:'$',USD:'$',EUR:'€',COP:'$',PEN:'S/'}[c]||'$'; }
-  function formatCurrency(a,c='MXN') {
-    return new Intl.NumberFormat('es-MX',{style:'currency',currency:c,minFrac:0}).format(a);
+  function formatCurrency(amount, currency = 'MXN') {
+    try {
+      const num = parseFloat(amount) || 0; // Fallback a 0 si es NaN/undefined
+      return new Intl.NumberFormat('es-MX', {
+        style: 'currency',
+        currency: currency || 'MXN',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      }).format(num);
+    } catch (e) {
+      console.warn('⚠️ Error formateando moneda:', e);
+      return `$${parseFloat(amount) || 0}`;
+    }
   }
   function addDays(d,days) { const r=new Date(d); r.setDate(r.getDate()+days); return r; }
   function formatDate(d,o={}) { return new Date(d).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric',...o}); }
