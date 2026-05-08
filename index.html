@@ -154,18 +154,47 @@
       </div> 
       
       <!-- 💳 Payments View -->
-      <div class="view" id="payments-view" aria-labelledby="payments-title">
-        <h3 id="payments-title">💳 Historial de Pagos</h3>
-        <div class="toolbar">
-          <label for="payment-week" class="sr-only">Filtrar por semana</label>
-          <select id="payment-week" aria-label="Filtrar pagos por semana">
-            <option value="all">Todas las semanas</option>
-            <!-- Se llena dinámicamente -->
-          </select>
-          <button id="mark-paid" class="btn-success" aria-label="Marcar pago seleccionado como realizado">✅ Marcar pagado</button>
+      <div class="view" id="payments-view">
+        <div class="page-header">
+          <h3>💳 Historial de Pagos</h3>
+          <p class="subtitle">Semana actual: <strong id="current-week-badge">1</strong></p>
         </div>
-        <div id="payments-list" class="list-container" role="list" aria-live="polite"></div>
-      </div> 
+      
+        <div class="toolbar">
+          <select id="payment-week">
+            <option value="all">📅 Todas las semanas</option>
+            <!-- Se llena dinámicamente si quieres filtrar, pero la matrix muestra todo -->
+          </select>
+          <!-- Botón futuro para exportar -->
+          <button class="btn-outline" style="width:auto; border-style:solid; border-width:1px;">📤 Exportar</button>
+        </div>
+      
+        <!-- Contenedor Matrix -->
+        <div id="payments-matrix" class="matrix-container">
+          <!-- Header de la Tabla -->
+          <div class="matrix-header">
+            <div class="participant-col sticky-left">Participante</div>
+            <div class="weeks-grid" id="weeks-header">
+              <!-- Las semanas se generan con JS aquí -->
+            </div>
+            <div class="summary-col sticky-right">Total</div>
+          </div>
+      
+          <!-- Cuerpo de la Tabla (Participantes) -->
+          <div id="matrix-body" class="matrix-body">
+            <!-- Filas generadas con JS -->
+          </div>
+      
+          <!-- Footer de la Tabla (Totales por semana) -->
+          <div class="matrix-footer">
+            <div class="participant-col sticky-left">Recaudado</div>
+            <div class="weeks-grid" id="weeks-total">
+              <!-- Totales generados con JS -->
+            </div>
+            <div class="summary-col sticky-right" id="grand-total">$0</div>
+          </div>
+        </div>
+      </div>
       
       <!-- ➕ New Tanda View (Lazy-loaded content) -->
       <div class="view" id="new-tanda-view" aria-labelledby="new-tanda-title">
