@@ -242,3 +242,48 @@ main { flex: 1; padding: 1rem; overflow-y: auto; }
   .list-item { flex-wrap: wrap; }
   .actions { margin-left: 52px; margin-top: 8px; }
 }
+/* === Modal Profesional === */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000; padding: 16px; backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s ease;
+}
+.modal-overlay.hidden { display: none; }
+.modal-card {
+  background: var(--surface); border-radius: 20px; padding: 24px;
+  width: 100%; max-width: 420px; box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+  animation: slideUp 0.3s ease;
+}
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.modal-form { display: flex; flex-direction: column; gap: 16px; }
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-group label { font-size: 0.9rem; font-weight: 500; color: var(--text); }
+.form-group input {
+  padding: 12px 14px; border: 2px solid var(--border); border-radius: 12px;
+  background: var(--bg); color: var(--text); font-size: 1rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.form-group input:focus {
+  outline: none; border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(79,70,229,0.15);
+}
+.form-group input:invalid:not(:placeholder-shown) { border-color: var(--danger); }
+.form-actions { display: flex; gap: 12px; margin-top: 8px; justify-content: flex-end; }
+.btn-primary, .btn-secondary {
+  padding: 12px 24px; border-radius: 12px; font-weight: 500; cursor: pointer;
+  border: none; font-size: 0.95rem; transition: transform 0.1s, filter 0.2s;
+}
+.btn-primary { background: var(--primary); color: white; }
+.btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); }
+.btn-secondary { background: var(--border); color: var(--text); }
+.btn-secondary:hover { filter: brightness(0.95); transform: translateY(-1px); }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* Responsive modal */
+@media (max-width: 480px) {
+  .modal-card { padding: 20px 16px; }
+  .form-actions { flex-direction: column-reverse; }
+  .btn-primary, .btn-secondary { width: 100%; }
+}
