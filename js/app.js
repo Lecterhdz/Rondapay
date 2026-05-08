@@ -347,7 +347,7 @@
 
     const weeks = Array.from({ length: totalWeeks }, (_, i) => i + 1);
     // ✅ LLENAR FILTRO DE SEMANAS DINÁMICAMENTE
-    const filter = document.getElementById('payment-week-filter');
+    const filter = document.getElementById('payment-week');
     if (filter) {
       filter.innerHTML = '<option value="all">📅 Todas las semanas</option>';
       weeks.forEach(w => {
@@ -518,17 +518,17 @@
     el.participantsList?.addEventListener('click',e=>{const it=e.target.closest('.list-item');if(!it)return;if(e.target.closest('button'))return;const id=parseInt(it.dataset.id);if(id)showParticipantDetails(id);});
     el.paymentWeek?.addEventListener('change',e=>renderPayments(e.target.value));
     el.markPaidBtn?.addEventListener('click',()=>{const w=el.paymentWeek?.value||'all';showToast(`🔧 Función "Marcar pagado masivo" para ${w} - Próximamente`,'info');});
+
     // 🎯 FILTRO DE SEMANAS PARA MATRIX (nuevo)
-    document.getElementById('payment-week-filter')?.addEventListener('change', (e) => {
+    el.paymentWeek?.addEventListener('change', (e) => {  // ✅ Usa el referencia ya definida
       const week = e.target.value;
-      // Limpiar resaltados previos
       document.querySelectorAll('.focus-week').forEach(el => el.classList.remove('focus-week'));
       if (week !== 'all') {
         document.querySelectorAll(`[data-week="${week}"]`).forEach(el => el.classList.add('focus-week'));
         const header = document.querySelector(`.week-cell[data-week="${week}"]`);
         header?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
       }
-    });    
+    }); 
     document.getElementById('btn-confirm-create')?.addEventListener('click',()=>{if(newTandaForm?.createTanda)newTandaForm.createTanda();document.getElementById('modal-confirm-tanda')?.classList.add('hidden');});
     document.querySelectorAll('#modal-confirm-tanda .modal-close')?.forEach(b=>b.addEventListener('click',()=>document.getElementById('modal-confirm-tanda')?.classList.add('hidden')));
     document.getElementById('modal-confirm-tanda')?.addEventListener('click',e=>{if(e.target.id==='modal-confirm-tanda')e.currentTarget.classList.add('hidden');});
