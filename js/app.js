@@ -1469,6 +1469,34 @@
       .templates-bar span { font-size: .85rem; color: var(--text-secondary); }
       .btn-chip { background: var(--surface); border: 1px solid var(--border); padding: 6px 12px; border-radius: 20px; font-size: .8rem; cursor: pointer; transition: all .2s; }
       .btn-chip:hover { border-color: #4f46e5; color: #4f46e5; }
+          /* ✅ CORRECCIÓN: Input con prefijo de moneda */
+    .input-with-prefix {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .input-with-prefix .currency-prefix {
+      position: absolute;
+      left: 14px;
+      color: var(--text-secondary);
+      font-weight: 500;
+      pointer-events: none;
+      font-size: 1.1rem;
+      z-index: 1;
+      background: transparent;
+    }
+    .input-with-prefix input {
+      padding-left: 32px !important;  /* ✅ Espacio suficiente para el símbolo */
+      padding-right: 14px;
+      position: relative;
+      z-index: 2;
+      background: var(--bg);
+    }
+    /* Asegurar que el input tenga fondo sólido para cubrir el símbolo si es necesario */
+    .input-with-prefix input:focus {
+      background: var(--bg);
+      z-index: 3;
+    }
       @media (max-width: 600px) {
         .form-row.two-cols { grid-template-columns: 1fr; }
         .preview-grid { grid-template-columns: 1fr; }
