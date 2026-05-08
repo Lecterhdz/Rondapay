@@ -196,3 +196,15 @@ main { flex: 1; padding: 1rem; overflow-y: auto; contain: content; }
 }
 .theme-dark .preview-card { background: linear-gradient(135deg, rgba(79,70,229,0.15), rgba(16,185,129,0.15)); border-color: rgba(79,70,229,0.3); }
 .theme-dark .modal-card { box-shadow: 0 20px 40px rgba(0,0,0,0.4); }
+
+/* Selector de Tanda en Header */
+.tanda-selector {
+  max-width: 200px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.9rem;
+  margin: 0 1rem;
+}
