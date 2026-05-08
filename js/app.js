@@ -12,7 +12,7 @@
     isAdmin: false,
     deferredPrompt: null
   };
-
+  const charts = {};
   // DOM
   const el = {
     loginScreen: document.getElementById('login-screen'),
