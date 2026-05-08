@@ -336,7 +336,7 @@
         labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
         datasets: [{
           label: 'Ingresos Totales ($)',
-           [1200, 1900, 2400, 3100, 2800, 4200],
+          data: [1200, 1900, 2400, 3100, 2800, 4200],
           borderColor: '#4f46e5',
           backgroundColor: 'rgba(79,70,229,0.1)',
           tension: 0.4,
