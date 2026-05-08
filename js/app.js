@@ -291,7 +291,15 @@
   function renderParticipants(filter='') {
     const t=getTanda(), list=el.participantsList; if(!list||!t)return;
     const f=t.participants.filter(p=>p.name.toLowerCase().includes(filter.toLowerCase())||p.phone.includes(filter));
-    if(!f.length){list.innerHTML=`<div class="empty-state">🔍 No se encontraron participantes${filter?` para "${escapeHtml(filter)}"`:''}${!filter&&!t.participants.length?'<br><button class="btn-primary" style="margin-top:12px" onclick="modal?.open?.()">+ Agregar primero</button>':''}</div>`;return;}
+    if(!f.length){// ✅ CORRECTO - Usamos data-action para manejar el click vía delegation
+      list.innerHTML = `
+        <div class="empty-state">
+          🔍 No se encontraron participantes${filter ? ` para "${escapeHtml(filter)}"` : ''}
+          ${!filter && !tanda.participants.length 
+            ? '<br><button class="btn-primary" style="margin-top:12px" data-action="add-first">+ Agregar primero</button>' 
+            : ''}
+        </div>
+      `;
     list.innerHTML=f.map(p=>{const ip=p.paidWeeks.includes(t.currentWeek);return`<div class="list-item" data-id="${p.id}" tabindex="0"><div class="avatar" aria-hidden="true">${p.name.charAt(0).toUpperCase()}</div><div class="info"><h4>${escapeHtml(p.name)}</h4><p>📱 ${formatPhone(p.phone)} • Turno: #${p.nextTurn}</p><p class="meta">💰 Pagadas: ${p.paidWeeks.length}/${t.totalWeeks}</p></div><div class="actions" role="group"><span class="status ${p.status}">${getStatusText(p.status)}</span><button class="icon-btn mark-paid ${ip?'done':''}" data-id="${p.id}" title="${ip?'Pago registrado':'Marcar como pagado'}">${ip?'✅':'💵'}</button><button class="icon-btn edit-participant" data-id="${p.id}" title="Editar">✏️</button><button class="icon-btn delete-participant" data-id="${p.id}" title="Eliminar">🗑️</button></div></div>`;}).join('');
   }
   function togglePayment(pid) {
