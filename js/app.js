@@ -241,12 +241,55 @@
   // 🔄 VISTAS
   // ========================================
   function renderView(vn) {
-    state.currentView=vn;
-    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
-    const tgt=document.getElementById(`${vn}-view`);
-    if(tgt){tgt.classList.add('active');
-      switch(vn){case'dashboard':el.pageTitle.textContent='📊 Dashboard';initCharts();break;case'participants':el.pageTitle.textContent='👥 Participantes';renderParticipants();break;case'payments':el.pageTitle.textContent='💳 Pagos';renderPayments();break;case'new-tanda':el.pageTitle.textContent='➕ Nueva Tanda';if(newTandaForm?.el){newTandaForm.el.reset();newTandaForm.tempParticipants=[];newTandaForm.updatePreview?.();}break;}}
-    document.querySelectorAll('[data-view]').forEach(l=>l.parentElement.classList.toggle('active-link',l.dataset.view===vn));
+    state.currentView = vn;
+    
+    // Ocultar todas las vistas y aplicar inert
+    document.querySelectorAll('.view').forEach(v => {
+      v.classList.remove('active');
+      v.setAttribute('inert', '');  // 🔒 Bloquear interacción en vistas ocultas
+    });
+    
+    // Mostrar vista seleccionada y quitar inert
+    const target = document.getElementById(`${vn}-view`);
+    if (target) {
+      target.classList.add('active');
+      target.removeAttribute('inert');  // 🔓 Desbloquear interacción en vista activa
+      
+      // Focus management para accesibilidad
+      const firstInput = target.querySelector('input:not([type="hidden"]), select, textarea');
+      if (firstInput && vn === 'new-tanda') {
+        setTimeout(() => firstInput.focus(), 100);
+      }
+      
+      // Renderizar contenido específico
+      switch(vn) {
+        case 'dashboard':
+          el.pageTitle.textContent = '📊 Dashboard';
+          initCharts();
+          break;
+        case 'participants':
+          el.pageTitle.textContent = '👥 Participantes';
+          renderParticipants();
+          break;
+        case 'payments':
+          el.pageTitle.textContent = '💳 Pagos';
+          renderPayments();
+          break;
+        case 'new-tanda':
+          el.pageTitle.textContent = '➕ Nueva Tanda';
+          if (newTandaForm?.el) {
+            newTandaForm.el.reset();
+            newTandaForm.tempParticipants = [];
+            newTandaForm.updatePreview?.();
+          }
+          break;
+      }
+    }
+    
+    // Actualizar estado activo en menú
+    document.querySelectorAll('[data-view]').forEach(link => {
+      link.parentElement.classList.toggle('active-link', link.dataset.view === vn);
+    });
   }
     // ========================================
   // 🎛️ EVENT LISTENERS
@@ -357,7 +400,7 @@
   // ========================================
   // 🚀 INICIALIZACIÓN
   // ========================================
-  function init(){initTheme();initDefaultData();checkSession();checkAdminAccess();setupEventListeners();registerSW();initInstallPrompt();if(modal?.init)modal.init();if(newTandaForm?.init)newTandaForm.init();if(editParticipantModal?.init)editParticipantModal.init();injectDynamicStyles();if(window.location.hostname==='localhost')console.log('🚀 RondaPay initialized',{session:sessionStorage.getItem(CONFIG.SESSION_KEY)?'active':'guest',theme:localStorage.getItem(CONFIG.THEME_KEY)||'light',tanda:Storage.get(CONFIG.DATA_KEY)?.name||'none'});}
+  function init(){initTheme();initDefaultData();checkSession();checkAdminAccess();setupEventListeners();registerSW();initInstallPrompt();setTimeout(() => {if(modal?.init)modal.init();if(newTandaForm?.init)newTandaForm.init();if(editParticipantModal?.init)editParticipantModal.init();}, 50);injectDynamicStyles();if(window.location.hostname==='localhost')console.log('🚀 RondaPay initialized',{session:sessionStorage.getItem(CONFIG.SESSION_KEY)?'active':'guest',theme:localStorage.getItem(CONFIG.THEME_KEY)||'light',tanda:Storage.get(CONFIG.DATA_KEY)?.name||'none'});}
 
   // ========================================
   // 🏁 ARRANQUE
