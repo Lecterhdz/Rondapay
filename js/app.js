@@ -559,43 +559,193 @@
     showToast(`✅ ${name} agregado a la ronda`);
     return true;
   }
-
+  // ========================================
+  // 💳 RENDERIZAR TABLA MATRIX DE PAGOS
+  // ========================================
+  function renderPaymentsMatrix(weekFilter = 'all') {
+    const tanda = getTanda();
+    const container = document.getElementById('payments-matrix');
+    const weeksHeader = document.getElementById('weeks-header');
+    const matrixBody = document.getElementById('matrix-body');
+    const weeksTotal = document.getElementById('weeks-total');
+    const grandTotalEl = document.getElementById('grand-total');
+    
+    if (!container || !tanda) return;
+    
+    // Actualizar semana actual
+    document.getElementById('current-week-badge').textContent = tanda.currentWeek;
+    
+    // Generar array de semanas
+    const weeks = Array.from({ length: tanda.totalWeeks }, (_, i) => i + 1);
+    const filteredWeeks = weekFilter === 'all' ? weeks : [parseInt(weekFilter)];
+    
+    // Header de semanas
+    weeksHeader.innerHTML = weeks.map(week => `
+      <div class="week-cell ${week === tanda.currentWeek ? 'current' : ''}" data-week="${week}">
+        <span class="week-num">${week}</span>
+        <span class="week-date">${getWeekDate(tanda.startDate, week, tanda.frequency)}</span>
+      </div>
+    `).join('');
+    
+    // Body: filas de participantes
+    matrixBody.innerHTML = tanda.participants
+      .filter(p => p.status === 'active')
+      .map(p => {
+        const paidCount = p.paidWeeks.length;
+        const totalPaid = paidCount * tanda.amount;
+        
+        return `
+          <div class="matrix-row" data-participant="${p.id}">
+            <div class="participant-cell">
+              <div class="participant-info">
+                ${escapeHtml(p.name)}
+                <small>Turno #${p.nextTurn}</small>
+              </div>
+            </div>
+            <div class="weeks-grid">
+              ${weeks.map(week => {
+                const isPaid = p.paidWeeks.includes(week);
+                const isCurrent = week === tanda.currentWeek;
+                const isReceived = isPaid && p.received;
+                let statusClass = 'pending';
+                let icon = '⏳';
+                
+                if (isPaid) {
+                  statusClass = 'paid';
+                  icon = '✅';
+                  if (isReceived) statusClass += ' received';
+                } else if (week < tanda.currentWeek) {
+                  statusClass = 'late';
+                  icon = '❌';
+                }
+                
+                return `
+                  <div class="payment-cell" 
+                       data-participant="${p.id}" 
+                       data-week="${week}"
+                       title="${isPaid ? 'Pagado' : week < tanda.currentWeek ? 'Atrasado' : 'Pendiente'}"
+                       role="button" tabindex="0">
+                    <span class="payment-status ${statusClass}">${icon}</span>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+            <div class="summary-cell">${formatCurrency(totalPaid, tanda.currency)}</div>
+          </div>
+        `;
+      }).join('');
+    
+    // Footer: totales por semana
+    weeksTotal.innerHTML = weeks.map(week => {
+      const paidCount = tanda.participants.filter(p => 
+        p.status === 'active' && p.paidWeeks.includes(week)
+      ).length;
+      const total = paidCount * tanda.amount;
+      return `<div class="week-total">${formatCurrency(total, tanda.currency)}</div>`;
+    }).join('');
+    
+    // Total general
+    const grandTotal = tanda.participants
+      .filter(p => p.status === 'active')
+      .reduce((sum, p) => sum + (p.paidWeeks.length * tanda.amount), 0);
+    grandTotalEl.textContent = formatCurrency(grandTotal, tanda.currency);
+    
+    // Event delegation para celdas de pago (toggle pago)
+    container.querySelectorAll('.payment-cell').forEach(cell => {
+      cell.addEventListener('click', (e) => {
+        const pId = parseInt(e.currentTarget.dataset.participant);
+        const week = parseInt(e.currentTarget.dataset.week);
+        togglePaymentForWeek(pId, week);
+      });
+      // Accesibilidad: Enter para toggle
+      cell.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const pId = parseInt(e.currentTarget.dataset.participant);
+          const week = parseInt(e.currentTarget.dataset.week);
+          togglePaymentForWeek(pId, week);
+        }
+      });
+    });
+  }
+  
+  // Helper: obtener fecha de una semana específica
+  function getWeekDate(startDate, weekNum, frequency) {
+    const start = new Date(startDate);
+    const freqDays = { weekly: 7, biweekly: 15, monthly: 30 };
+    const daysToAdd = freqDays[frequency] * (weekNum - 1);
+    const date = new Date(start.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
+    return date.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' });
+  }
+  
+  // Toggle pago para una semana específica (nueva función)
+  function togglePaymentForWeek(participantId, week) {
+    const tanda = getTanda();
+    const p = tanda.participants.find(x => x.id === participantId);
+    if (!p) return;
+    
+    const weekIndex = p.paidWeeks.indexOf(week);
+    if (weekIndex === -1) {
+      p.paidWeeks.push(week);
+      p.paidWeeks.sort((a, b) => a - b);
+      showToast(`✅ ${p.name} marcó pago - Semana ${week}`);
+    } else {
+      p.paidWeeks.splice(weekIndex, 1);
+      showToast(`⚠️ Pago desmarcado para ${p.name} - Semana ${week}`);
+    }
+    
+    saveTanda(tanda);
+    renderPaymentsMatrix();
+    renderParticipants(); // Actualizar vista de participantes también
+    initCharts(); // Actualizar gráficos
+  }
   // ========================================
   // 💳 GESTIÓN DE PAGOS
   // ========================================
   function renderPayments(weekFilter = 'all') {
-    const tanda = getTanda();
-    const list = el.paymentsList;
-    if (!list || !tanda) return;
+    // Toggle entre vista matrix y lista
+    const isMatrix = document.body.classList.contains('payments-matrix-view');
     
-    const weeks = Array.from({ length: tanda.totalWeeks }, (_, i) => i + 1);
-    const filteredWeeks = weekFilter === 'all' ? weeks : [parseInt(weekFilter)];
-    
-    list.innerHTML = filteredWeeks.map(week => {
-      const weekParticipants = tanda.participants.filter(p => p.status === 'active');
-      const paidCount = weekParticipants.filter(p => p.paidWeeks.includes(week)).length;
-      const totalExpected = weekParticipants.length * tanda.amount;
-      const collected = paidCount * tanda.amount;
-      const percent = Math.round((collected / totalExpected) * 100) || 0;
+    if (isMatrix) {
+      renderPaymentsMatrix(weekFilter);
+    } else {
+      // Vista lista original (simplificada)
+      const tanda = getTanda();
+      const list = el.paymentsList;
+      if (!list || !tanda) return;
       
-      return `
-        <div class="list-item payment-week" data-week="${week}">
-          <div class="info">
-            <h4>📅 Semana ${week}</h4>
-            <p>💰 Recaudado: $${collected.toLocaleString()} / $${totalExpected.toLocaleString()}</p>
-            <div class="progress-bar">
-              <div class="progress-fill" style="width: ${percent}%"></div>
+      const weeks = Array.from({ length: tanda.totalWeeks }, (_, i) => i + 1);
+      const filteredWeeks = weekFilter === 'all' ? weeks : [parseInt(weekFilter)];
+      
+      list.innerHTML = filteredWeeks.map(week => {
+        const paidCount = tanda.participants.filter(p => 
+          p.status === 'active' && p.paidWeeks.includes(week)
+        ).length;
+        const totalExpected = tanda.participants.filter(p => p.status === 'active').length * tanda.amount;
+        const collected = paidCount * tanda.amount;
+        const percent = totalExpected > 0 ? Math.round((collected / totalExpected) * 100) : 0;
+        
+        return `
+          <div class="list-item payment-week" data-week="${week}">
+            <div class="info">
+              <h4>📅 Semana ${week}</h4>
+              <p>💰 $${collected.toLocaleString()} / $${totalExpected.toLocaleString()}</p>
+              <div class="progress-bar"><div class="progress-fill" style="width: ${percent}%"></div></div>
+              <p class="meta">${paidCount} de ${tanda.participants.filter(p => p.status === 'active').length} pagaron</p>
             </div>
-            <p class="meta">${paidCount}/${weekParticipants.length} participantes pagaron</p>
-          </div>
-          <div class="actions">
             <span class="status ${percent === 100 ? 'paid' : percent > 0 ? 'pending' : 'late'}">
-              ${percent === 100 ? '✅ Completo' : percent > 0 ? '⏳ Parcial' : '❌ Pendiente'}
+              ${percent === 100 ? '✅' : percent > 0 ? '⏳' : '❌'}
             </span>
           </div>
-        </div>
-      `;
-    }).join('');
+        `;
+      }).join('');
+    }
+    
+    // Actualizar filtro en select
+    const select = document.getElementById('payment-week-filter');
+    if (select && select.value !== weekFilter) {
+      select.value = weekFilter;
+    }
   }
 
   // ========================================
