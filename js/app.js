@@ -75,7 +75,80 @@
       Object.keys(localStorage).forEach(k => { if (k.startsWith('rondapay_')) localStorage.removeItem(k); });
     }
   };
-
+  // ========================================
+  // 💾 MULTI-TANDA: GESTIÓN DE MÚLTIPLES RONDAS
+  // ========================================
+  const MultiTanda = {
+    KEY_LIST: 'rondapay_list', // Lista de IDs de tandas
+    KEY_PREFIX: 'rondapay_tanda_', // Prefijo para cada tanda
+    
+    // Obtener lista de IDs de tandas
+    getList() {
+      try {
+        return JSON.parse(localStorage.getItem(this.KEY_LIST)) || [];
+      } catch { return []; }
+    },
+    
+    // Guardar lista de IDs
+    saveList(ids) {
+      localStorage.setItem(this.KEY_LIST, JSON.stringify(ids));
+    },
+    
+    // Guardar una tanda específica
+    save(id, tanda) {
+      localStorage.setItem(`${this.KEY_PREFIX}${id}`, JSON.stringify(tanda));
+      const list = this.getList();
+      if (!list.includes(id)) {
+        list.push(id);
+        this.saveList(list);
+      }
+    },
+    
+    // Obtener una tanda específica
+    get(id) {
+      try {
+        const raw = localStorage.getItem(`${this.KEY_PREFIX}${id}`);
+        return raw ? JSON.parse(raw) : null;
+      } catch { return null; }
+    },
+    
+    // Obtener tanda activa (de la sesión)
+    getActive() {
+      const activeId = sessionStorage.getItem('rondapay_active_tanda');
+      return activeId ? this.get(activeId) : null;
+    },
+    
+    // Establecer tanda activa
+    setActive(id) {
+      sessionStorage.setItem('rondapay_active_tanda', id);
+    },
+    
+    // Eliminar tanda
+    delete(id) {
+      localStorage.removeItem(`${this.KEY_PREFIX}${id}`);
+      const list = this.getList().filter(x => x !== id);
+      this.saveList(list);
+      if (sessionStorage.getItem('rondapay_active_tanda') === id) {
+        sessionStorage.removeItem('rondapay_active_tanda');
+      }
+    },
+    
+    // Migrar tanda antigua (single) a nuevo sistema
+    migrateLegacy() {
+      const legacy = Storage.get('rondapay_tanda');
+      if (legacy && !legacy.id) {
+        // Asignar ID único si no tiene
+        legacy.id = crypto.randomUUID?.() || `legacy_${Date.now()}`;
+        this.save(legacy.id, legacy);
+        this.setActive(legacy.id);
+        // Eliminar clave antigua
+        Storage.remove('rondapay_tanda');
+        console.log('✅ Migrada tanda legacy a sistema multi-tanda');
+        return legacy.id;
+      }
+      return null;
+    }
+  };
   function initDefaultData() {
     if (!Storage.get(CONFIG.DATA_KEY)) {
       Storage.set(CONFIG.DATA_KEY, {
@@ -91,8 +164,18 @@
       });
     }
   }
-  function getTanda() { return Storage.get(CONFIG.DATA_KEY); }
-  function saveTanda(t) { Storage.set(CONFIG.DATA_KEY, t); }
+  // ✅ NUEVAS FUNCIONES MULTI-TANDA
+  function getTanda() {
+    // Primero intentar migrar si hay tanda legacy
+    MultiTanda.migrateLegacy();
+    // Obtener tanda activa
+    return MultiTanda.getActive();
+  }
+  function saveTanda(tanda) {
+    if (!tanda.id) tanda.id = crypto.randomUUID?.() || Date.now().toString();
+    MultiTanda.save(tanda.id, tanda);
+    MultiTanda.setActive(tanda.id);
+  }
 
   // ========================================
   // 🎨 UTILIDADES UI (Helpers - AHORA PRIMERO)
