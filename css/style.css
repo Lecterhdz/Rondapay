@@ -390,3 +390,78 @@ main { flex: 1; padding: 1rem; overflow-y: auto; }
 .theme-dark .preview-card {
   background: linear-gradient(135deg, rgba(79,70,229,0.15), rgba(16,185,129,0.15));
 }
+/* === Tabla Matrix de Pagos === */
+.matrix-container {
+  background: var(--surface); border-radius: 16px; overflow: hidden;
+  box-shadow: var(--shadow); margin-top: 16px;
+}
+.matrix-header, .matrix-footer {
+  display: grid; grid-template-columns: 150px 1fr 80px; gap: 1px;
+  background: var(--border); font-size: 0.85rem; font-weight: 600;
+}
+.matrix-header > div, .matrix-footer > div {
+  background: var(--surface); padding: 12px; text-align: center;
+}
+.participant-col { text-align: left; position: sticky; left: 0; z-index: 2; background: var(--surface); }
+.summary-col { position: sticky; right: 0; z-index: 2; background: var(--surface); }
+.weeks-grid {
+  display: grid; grid-auto-flow: column; gap: 1px; overflow-x: auto;
+  padding: 1px; /* Para el gap del grid padre */
+}
+.week-cell {
+  min-width: 40px; padding: 8px 4px; font-size: 0.75rem;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.week-cell .week-num { font-weight: 600; }
+.week-cell .week-date { font-size: 0.7rem; color: var(--text-secondary); }
+
+.matrix-body { max-height: 400px; overflow-y: auto; }
+.matrix-row {
+  display: grid; grid-template-columns: 150px 1fr 80px; gap: 1px;
+  background: var(--border); border-bottom: 1px solid var(--border);
+}
+.matrix-row:last-child { border-bottom: none; }
+.matrix-row > div {
+  background: var(--surface); padding: 12px; display: flex; align-items: center;
+}
+.matrix-row .participant-info {
+  text-align: left; font-size: 0.9rem; font-weight: 500;
+}
+.matrix-row .participant-info small {
+  display: block; font-size: 0.75rem; color: var(--text-secondary); font-weight: 400;
+}
+.participant-cell { position: sticky; left: 0; z-index: 1; background: var(--surface); }
+.summary-cell { position: sticky; right: 0; z-index: 1; background: var(--surface); font-weight: 600; }
+
+/* Celdas de pago (semanas) */
+.payment-cell {
+  display: flex; justify-content: center; align-items: center;
+  cursor: pointer; transition: background 0.15s;
+}
+.payment-cell:hover { background: rgba(79,70,229,0.05); }
+.payment-status {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.8rem; font-weight: 600;
+}
+.payment-status.paid { background: var(--success); color: white; }
+.payment-status.pending { background: var(--warning); color: white; }
+.payment-status.late { background: var(--danger); color: white; }
+.payment-status.received { box-shadow: 0 0 0 2px var(--primary); }
+
+/* Toggle vista */
+#toggle-view-mode { min-width: auto; padding: 8px 12px; font-size: 0.85rem; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .matrix-header, .matrix-row, .matrix-footer {
+    grid-template-columns: 120px 1fr 70px;
+  }
+  .week-cell { min-width: 36px; padding: 6px 2px; }
+  .payment-status { width: 24px; height: 24px; font-size: 0.7rem; }
+}
+@media (max-width: 480px) {
+  .matrix-container { font-size: 0.85rem; }
+  .participant-col, .participant-cell { min-width: 100px; }
+  .weeks-grid { grid-auto-columns: 32px; }
+}
