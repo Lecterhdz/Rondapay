@@ -166,3 +166,12 @@ main { flex: 1; padding: 1rem; overflow-y: auto; }
 .btn-success { background:var(--success); color:white; border:none; padding:0.5rem 1rem; border-radius:8px; cursor:pointer; }
 .active-link a { background:var(--border); }
 .empty-state { text-align:center; padding:2rem; color:var(--text-secondary); }
+/* Agregar a css/style.css */
+.chart-card {
+  position: relative;
+  height: 300px; /* Altura fija para responsive */
+}
+.chart-card canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
