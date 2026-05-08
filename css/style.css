@@ -331,3 +331,18 @@ main {
 /* Ajustes Tema Oscuro Específicos */
 .theme-dark .preview-card { background: linear-gradient(135deg, rgba(79,70,229,0.15), rgba(16,185,129,0.15)); border-color: rgba(79,70,229,0.3); }
 .theme-dark .modal-card { box-shadow: 0 20px 40px rgba(0,0,0,0.4); }
+/* === OPTIMIZACIÓN: CSS CONTAINMENT === */
+.matrix-body { 
+  contain: layout style paint; 
+  content-visibility: auto; 
+  contain-intrinsic-size: 1px 400px; 
+}
+.matrix-row { contain: layout style paint; }
+.payment-cell { contain: layout; }
+.week-cell { contain: layout; }
+
+/* GPU Acceleration para animaciones de celdas */
+.payment-status { 
+  will-change: transform, opacity; 
+  backface-visibility: hidden;
+}
