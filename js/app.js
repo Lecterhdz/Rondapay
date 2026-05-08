@@ -330,7 +330,14 @@
     if (badge) badge.textContent = currentWeek;
 
     const weeks = Array.from({ length: totalWeeks }, (_, i) => i + 1);
-    
+    // ✅ LLENAR FILTRO DE SEMANAS DINÁMICAMENTE
+    const filter = document.getElementById('payment-week-filter');
+    if (filter) {
+      filter.innerHTML = '<option value="all">📅 Todas las semanas</option>';
+      weeks.forEach(w => {
+        filter.innerHTML += `<option value="${w}">Semana ${w}</option>`;
+      });
+    }    
     // 1. GENERAR ENCABEZADOS (Semanas + QUIÉN RECIBE)
     wh.innerHTML = weeks.map(w => {
       const receiver = participants.find(p => p.nextTurn === w);
