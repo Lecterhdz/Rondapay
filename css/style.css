@@ -367,3 +367,16 @@ main {
   color: var(--primary);
   font-weight: 700;
 }
+/* === Focus Mode: cuando se filtra una semana === */
+.matrix-container.filtered {
+  box-shadow: 0 0 0 2px var(--primary), var(--shadow);
+}
+.week-cell {
+  transition: opacity 0.2s, transform 0.2s;
+}
+.payment-cell {
+  transition: transform 0.1s;
+}
+.payment-cell:active {
+  transform: scale(0.95);
+}
