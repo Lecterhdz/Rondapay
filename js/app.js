@@ -112,39 +112,41 @@
   }
 
   // UI
-  function setupEventListeners() {
-    el.loginBtn.addEventListener('click', login);
-    el.licenseInput.addEventListener('keypress', e => e.key === 'Enter' && login());
-    el.themeToggle.addEventListener('click', toggleTheme);
-    el.logoutBtn.addEventListener('click', logout);
-    
-    // Menú
-    el.menuToggle.addEventListener('click', () => el.menu.classList.add('open'));
-    el.hideMenu.addEventListener('click', () => el.menu.classList.remove('open'));
-    el.showMenu.addEventListener('click', () => {
-      el.menu.classList.add('open');
-      el.showMenu.classList.add('hidden');
-    });
-    el.menu.addEventListener('transitionend', () => {
-      el.showMenu.classList.toggle('hidden', el.menu.classList.contains('open'));
-    });
+function setupEventListeners() {
+  el.loginBtn.addEventListener('click', login);
+  el.licenseInput.addEventListener('keypress', e => e.key === 'Enter' && login());
+  el.themeToggle.addEventListener('click', toggleTheme);
+  el.logoutBtn.addEventListener('click', logout);
+  
+  // Menú
+  el.menuToggle.addEventListener('click', () => { el.menu.classList.add('open'); el.showMenu.classList.add('hidden'); });
+  el.hideMenu.addEventListener('click', () => { el.menu.classList.remove('open'); setTimeout(() => el.showMenu.classList.remove('hidden'), 300); });
+  el.showMenu.addEventListener('click', () => { el.menu.classList.add('open'); el.showMenu.classList.add('hidden'); });
+  document.addEventListener('click', e => !el.menu.contains(e.target) && e.target !== el.menuToggle && el.menu.classList.remove('open'));
 
-    // Navegación interna
-    document.querySelectorAll('[data-view]').forEach(link => {
-      link.addEventListener('click', e => {
-        e.preventDefault();
-        const view = e.target.dataset.view;
-        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-        document.getElementById(`${view}-view`)?.classList.add('active');
-        el.menu.classList.remove('open');
-      });
+  // Navegación corregida
+  document.querySelectorAll('[data-view]').forEach(link => {
+    link.addEventListener('click', e => {
+      e.preventDefault();
+      const view = e.target.dataset.view;
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.querySelectorAll('[data-view]').forEach(l => l.parentElement.classList.remove('active-link'));
+      
+      const target = document.getElementById(`${view}-view`);
+      if (target) {
+        target.classList.add('active');
+        e.target.parentElement.classList.add('active-link');
+        renderView(view); // 🔥 Render dinámico
+      }
+      el.menu.classList.remove('open');
     });
+  });
 
-    document.getElementById('admin-back').addEventListener('click', () => {
-      window.history.replaceState({}, '', window.location.pathname);
-      showLogin();
-    });
-  }
+  document.getElementById('admin-back').addEventListener('click', () => {
+    window.history.replaceState({}, '', window.location.pathname);
+    showLogin();
+  });
+}
 
   // Gráficos (Chart.js)
   function initCharts() {
@@ -213,4 +215,43 @@
       state.deferredPrompt = null;
     });
   }
+
+function renderView(view) {
+  const tanda = Storage.get('rondapay_tanda');
+  if (!tanda) return;
+
+  if (view === 'participants') {
+    const list = document.getElementById('participants-list');
+    list.innerHTML = tanda.participants.length ? '' : '<div class="empty-state">No hay participantes aún</div>';
+    
+    tanda.participants.forEach(p => {
+      const div = document.createElement('div');
+      div.className = 'list-item';
+      div.innerHTML = `
+        <div class="info"><h4>${p.name}</h4><p>📱 ${p.phone} • Semana turno: ${p.nextTurn}</p></div>
+        <span class="status ${p.status}">${p.status === 'active' ? '✅ Activo' : '⏳ Pendiente'}</span>
+      `;
+      list.appendChild(div);
+    });
+  }
+
+  if (view === 'payments') {
+    const list = document.getElementById('payments-list');
+    list.innerHTML = '<div class="list-item"><div class="info"><h4>Semana 1</h4><p>Recaudado: $2,000 / $3,000</p></div><span class="status paid">✅ Pagado</span></div>';
+    list.innerHTML += '<div class="list-item"><div class="info"><h4>Semana 2</h4><p>Recaudado: $1,000 / $3,000</p></div><span class="status pending">⏳ Parcial</span></div>';
+  }
+
+  if (view === 'dashboard') initCharts();
+}
+
+// Inicializar datos al cargar
+document.addEventListener('DOMContentLoaded', () => {
+  initDefaultData();
+  initTheme();
+  checkSession();
+  checkAdminAccess();
+  setupEventListeners();
+  registerSW();
+  initInstallPrompt();
+});  
 })();
