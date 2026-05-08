@@ -346,3 +346,13 @@ main {
   will-change: transform, opacity; 
   backface-visibility: hidden;
 }
+/* === Matrix Sticky Columns === */
+.sticky-left {
+  position: sticky; left: 0; z-index: 5; background: var(--surface);
+  border-right: 2px solid var(--border);
+}
+.sticky-right {
+  position: sticky; right: 0; z-index: 5; background: var(--surface);
+  border-left: 2px solid var(--border);
+}
+.highlight-row { background: rgba(16, 185, 129, 0.05); }
