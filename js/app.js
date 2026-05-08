@@ -177,12 +177,80 @@
     else{p.paidWeeks.splice(wi,1);showToast(`⚠️ Pago desmarcado para ${p.name}`);}
     saveTanda(t); renderParticipants(el.searchParticipant?.value||''); initCharts();
   }
-  function togglePaymentForWeek(pid,week) {
-    const t=getTanda(), p=t.participants.find(x=>x.id===pid); if(!p)return;
-    const wi=p.paidWeeks.indexOf(week);
-    if(wi===-1){p.paidWeeks.push(week);p.paidWeeks.sort((a,b)=>a-b);showToast(`✅ ${p.name} marcó pago - Semana ${week}`);}
-    else{p.paidWeeks.splice(wi,1);showToast(`⚠️ Pago desmarcado para ${p.name} - Semana ${week}`);}
-    saveTanda(t); renderPaymentsMatrix(); renderParticipants(); initCharts();
+  // ========================================
+  // 💳 TOGGLE PAGO (ACTUALIZACIÓN PARCIAL + DEBOUNCE)
+  // ========================================
+  let saveTimeout = null;
+  
+  function togglePaymentForWeek(pid, week) {
+    const t = getTanda();
+    const p = t.participants.find(x => x.id === pid);
+    if (!p) return;
+
+    const idx = p.paidWeeks.indexOf(week);
+    const isPaid = idx === -1;
+    
+    // ✅ Actualizar estado en memoria
+    if (isPaid) {
+      p.paidWeeks.push(week);
+      p.paidWeeks.sort((a,b) => a-b);
+    } else {
+      p.paidWeeks.splice(idx, 1);
+    }
+
+    // ✅ Actualización SOLO de la celda (sin re-render completo)
+    const cell = document.querySelector(`.payment-cell[data-participant="${pid}"][data-week="${week}"]`);
+    if (cell) {
+      const statusEl = cell.querySelector('.payment-status');
+      if (statusEl) {
+        const isLate = week < t.currentWeek && !isPaid;
+        statusEl.className = `payment-status ${isPaid ? 'paid' : isLate ? 'late' : 'pending'}`;
+        statusEl.textContent = isPaid ? '✅' : isLate ? '❌' : '⏳';
+        if (isPaid) statusEl.classList.toggle('received', p.received);
+      }
+    }
+
+    // ✅ Actualizar totales en tiempo real (solo elementos visibles)
+    updateRowTotal(pid, t);
+    updateWeekTotal(week, t);
+    updateGrandTotal(t);
+
+    // ✅ Guardado optimizado (evita thrashing de localStorage)
+    scheduleSave();
+    
+    showToast(isPaid ? `✅ ${p.name} - Semana ${week}` : `⚠️ Pago desmarcado`, isPaid ? 'success' : 'warning');
+  }
+
+  function updateRowTotal(pid, tanda) {
+    const p = tanda.participants.find(x => x.id === pid);
+    const row = document.querySelector(`.matrix-row[data-participant="${pid}"] .summary-cell`);
+    if (row && p) row.textContent = formatCurrency(p.paidWeeks.length * tanda.amount, tanda.currency);
+  }
+
+  function updateWeekTotal(week, tanda) {
+    const active = tanda.participants.filter(p => p.status === 'active');
+    const paidCount = active.filter(p => p.paidWeeks.includes(week)).length;
+    const col = document.querySelectorAll('#weeks-total .week-total')[week - 1];
+    if (col) col.textContent = formatCurrency(paidCount * tanda.amount, tanda.currency);
+  }
+
+  function updateGrandTotal(tanda) {
+    const gt = document.getElementById('grand-total');
+    const active = tanda.participants.filter(p => p.status === 'active');
+    const total = active.reduce((sum, p) => sum + (p.paidWeeks.length * tanda.amount), 0);
+    if (gt) gt.textContent = formatCurrency(total, tanda.currency);
+  }
+
+  function scheduleSave() {
+    clearTimeout(saveTimeout);
+    // Guardar en lote cada 1s o usar requestIdleCallback si está disponible
+    saveTimeout = setTimeout(() => {
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(() => saveTanda(getTanda()), { timeout: 2000 });
+      } else {
+        saveTanda(getTanda());
+      }
+    }, 1000);
   }
   function addParticipant(name,phone,turn=1) {
     if(!name||!phone){showToast('❌ Nombre y teléfono son requeridos','error');return false;}
