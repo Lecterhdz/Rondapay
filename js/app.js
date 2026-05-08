@@ -115,10 +115,23 @@
   }
   function addDays(d,days) { const r=new Date(d); r.setDate(r.getDate()+days); return r; }
   function formatDate(d,o={}) { return new Date(d).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric',...o}); }
-  function getWeekDate(sd,wn,f) {
-    const s=new Date(sd), fd={weekly:7,biweekly:15,monthly:30};
-    return new Date(s.getTime()+fd[f]*(wn-1)*864e5).toLocaleDateString('es-MX',{day:'2-digit',month:'2-digit'});
-  }
+  function getWeekDate(startDate, weekNum, frequency) {
+    try {
+      // Asegurar que startDate es un objeto Date válido
+      const start = startDate instanceof Date ? startDate : new Date(startDate);
+      if (isNaN(start.getTime())) return '---'; // Fallback si fecha inválida
+      
+      const freqDays = { weekly: 7, biweekly: 15, monthly: 30 };
+      const days = freqDays[frequency] || 7;
+      const target = new Date(start.getTime() + (days * (weekNum - 1) * 24 * 60 * 60 * 1000));
+      
+      // Formato corto: "15 Oct"
+      return target.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+    } catch (e) {
+      console.warn('⚠️ Error calculando fecha:', e);
+      return '---';
+    }
+  }}
   function calculateTandaPreview(amt,part,freq,start) {
     const fd={weekly:7,biweekly:15,monthly:30}, tw=part, td=fd[freq]*tw;
     return {
