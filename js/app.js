@@ -418,44 +418,39 @@
     
     list.innerHTML = filtered.map(p => {
       const isPaid = p.paidWeeks.includes(tanda.currentWeek);
+      // Dentro de renderParticipants(), modifica el HTML generado:
       return `
         <div class="list-item" data-id="${p.id}">
-          <div class="avatar">${p.name.charAt(0)}</div>
+          <div class="avatar">${p.name.charAt(0).toUpperCase()}</div>
           <div class="info">
             <h4>${p.name}</h4>
             <p>📱 ${formatPhone(p.phone)} • Turno: #${p.nextTurn}</p>
-            <p class="meta">💰 Pagadas: ${p.paidWeeks.length}/${tanda.totalWeeks} semanas</p>
+            <p class="meta">💰 Pagadas: ${p.paidWeeks.length}/${tanda.totalWeeks}</p>
           </div>
           <div class="actions">
             <span class="status ${p.status}">${getStatusText(p.status)}</span>
-            <button class="icon-btn mark-paid ${isPaid ? 'done' : ''}" 
-                    data-id="${p.id}" 
-                    title="${isPaid ? 'Ya pagó' : 'Marcar como pagado'}">
-              ${isPaid ? '✅' : '💵'}
-            </button>
+            <button class="icon-btn mark-paid ${p.paidWeeks.includes(tanda.currentWeek) ? 'done' : ''}" 
+                    data-id="${p.id}" title="Marcar pago">💵</button>
+            <button class="icon-btn edit-participant" data-id="${p.id}" title="Editar">✏️</button>
+            <button class="icon-btn delete-participant" data-id="${p.id}" title="Eliminar">🗑️</button>
           </div>
         </div>
       `;
-    }).join('');
-    
-    // Event delegation para botones dinámicos
-    list.querySelectorAll('.mark-paid').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const id = parseInt(e.currentTarget.dataset.id);
-        togglePayment(id);
+      
+      // Y agrega los event listeners al final de renderParticipants():
+      list.querySelectorAll('.delete-participant').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          deleteParticipant(parseInt(e.currentTarget.dataset.id));
+        });
       });
-    });
-    
-    // Click en participante para ver detalles (futuro)
-    list.querySelectorAll('.list-item').forEach(item => {
-      item.addEventListener('click', (e) => {
-        if (!e.target.closest('button')) {
-          const id = parseInt(item.dataset.id);
-          showParticipantDetails(id);
-        }
+      
+      list.querySelectorAll('.edit-participant').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          editParticipant(parseInt(e.currentTarget.dataset.id));
+        });
       });
-    });
   }
 
   function togglePayment(participantId) {
@@ -830,6 +825,9 @@
     registerSW();
     initInstallPrompt();
     
+    // ✅ Inicializar modal de participante
+    if (modal.el) modal.init();    
+    
     // Agregar estilos para animaciones dinámicas
     if (!document.getElementById('rondapay-styles')) {
       const style = document.createElement('style');
@@ -912,5 +910,160 @@
   } else {
     init();
   }
+  // ========================================
+  // 🎯 MODAL: AGREGAR PARTICIPANTE
+  // ========================================
+  const modal = {
+    el: document.getElementById('modal-participant'),
+    form: document.getElementById('form-participant'),
+    name: document.getElementById('p-name'),
+    phone: document.getElementById('p-phone'),
+    turn: document.getElementById('p-turn'),
+    
+    open() {
+      this.el.classList.remove('hidden');
+      this.name.focus();
+      document.body.style.overflow = 'hidden'; // Prevenir scroll
+    },
+    
+    close() {
+      this.el.classList.add('hidden');
+      document.body.style.overflow = '';
+      this.form.reset();
+    },
+    
+    init() {
+      // Abrir modal desde botón
+      document.getElementById('add-participant')?.addEventListener('click', () => this.open());
+      
+      // Cerrar modal
+      this.el.querySelectorAll('.modal-close').forEach(btn => {
+        btn.addEventListener('click', () => this.close());
+      });
+      
+      // Cerrar al hacer click fuera
+      this.el.addEventListener('click', (e) => {
+        if (e.target === this.el) this.close();
+      });
+      
+      // Cerrar con tecla Escape
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !this.el.classList.contains('hidden')) {
+          this.close();
+        }
+      });
+      
+      // Submit del formulario
+      this.form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        this.handleSubmit();
+      });
+    },
+    
+    handleSubmit() {
+      const name = this.name.value.trim();
+      const phone = this.phone.value.trim().replace(/\D/g, '');
+      const turn = parseInt(this.turn.value);
+      
+      // Validaciones adicionales
+      if (name.length < 2) {
+        this.showError('El nombre debe tener al menos 2 caracteres');
+        this.name.focus();
+        return;
+      }
+      if (phone.length !== 10) {
+        this.showError('El teléfono debe tener 10 dígitos');
+        this.phone.focus();
+        return;
+      }
+      
+      // Agregar participante
+      const success = addParticipant(name, phone, turn);
+      if (success) {
+        this.close();
+        showToast('✅ Participante agregado exitosamente');
+      }
+    },
+    
+    showError(msg) {
+      showToast(msg, 'error');
+      // Efecto visual de error en el input
+      const input = event?.target || this.name;
+      input.style.borderColor = 'var(--danger)';
+      setTimeout(() => input.style.borderColor = '', 2000);
+    }
+  };
 
+  // ========================================
+  // ➕ FUNCIÓN addParticipant ACTUALIZADA
+  // ========================================
+  function addParticipant(name, phone, turn = 1) {
+    const tanda = getTanda();
+    if (!tanda) return false;
+    
+    // Validar duplicados por teléfono
+    if (tanda.participants.some(p => p.phone === phone)) {
+      showToast('⚠️ Este teléfono ya está registrado', 'warning');
+      return false;
+    }
+    
+    const newId = Math.max(...tanda.participants.map(p => p.id), 0) + 1;
+    const nextTurn = turn || Math.max(...tanda.participants.map(p => p.nextTurn || 0), 0) + 1;
+    
+    tanda.participants.push({
+      id: newId,
+      name: name.trim(),
+      phone: phone.trim(),
+      status: 'active',
+      paidWeeks: [],
+      nextTurn: nextTurn,
+      received: false,
+      createdAt: new Date().toISOString()
+    });
+    
+    // Ordenar por número de turno
+    tanda.participants.sort((a, b) => a.nextTurn - b.nextTurn);
+    
+    saveTanda(tanda);
+    
+    // Re-renderizar si estamos en vista participantes
+    if (state.currentView === 'participants') {
+      renderParticipants();
+      initCharts();
+    }
+    
+    return true;
+  }
+
+  // ========================================
+  // 🗑️ ELIMINAR PARTICIPANTE
+  // ========================================
+  function deleteParticipant(id) {
+    if (!confirm('¿Eliminar este participante? Esta acción no se puede deshacer.')) {
+      return;
+    }
+    
+    const tanda = getTanda();
+    const index = tanda.participants.findIndex(p => p.id === id);
+    
+    if (index !== -1) {
+      const removed = tanda.participants.splice(index, 1)[0];
+      saveTanda(tanda);
+      renderParticipants();
+      initCharts();
+      showToast(`🗑️ ${removed.name} eliminado`);
+    }
+  }
+
+  // ========================================
+  // ✏️ EDITAR PARTICIPANTE (placeholder)
+  // ========================================
+  function editParticipant(id) {
+    const tanda = getTanda();
+    const p = tanda.participants.find(x => x.id === id);
+    if (!p) return;
+    
+    // Abrir modal con datos prellenados (futuro)
+    showToast('🔧 Edición próximamente', 'info');
+  }
 })(); // ← FIN DEL IIFE
