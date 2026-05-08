@@ -175,3 +175,70 @@ main { flex: 1; padding: 1rem; overflow-y: auto; }
   width: 100% !important;
   height: 100% !important;
 }
+/* === RondaPay - Componentes Dinámicos === */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;
+  z-index: 1000; padding: 16px; backdrop-filter: blur(4px);
+}
+.modal-card {
+  background: var(--surface); border-radius: 16px; padding: 20px;
+  max-width: 400px; width: 100%; box-shadow: var(--shadow);
+  animation: slideUp 0.3s ease;
+}
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.modal-body p { margin: 8px 0; }
+.modal-footer { display: flex; gap: 8px; margin-top: 20px; justify-content: flex-end; }
+
+.payment-history { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.week-badge {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem; font-weight: 500; background: var(--border); color: var(--text);
+}
+.week-badge.paid { background: var(--success); color: white; }
+.week-badge.received { box-shadow: 0 0 0 2px var(--primary); }
+
+.list-item { display: flex; align-items: center; gap: 12px; padding: 12px; }
+.avatar {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: var(--primary); color: white;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 600; font-size: 1.1rem; flex-shrink: 0;
+}
+.info { flex: 1; min-width: 0; }
+.info h4 { margin: 0; font-size: 0.95rem; }
+.info p { margin: 2px 0; font-size: 0.8rem; color: var(--text-secondary); }
+.info .meta { font-size: 0.75rem; opacity: 0.8; }
+.actions { display: flex; align-items: center; gap: 8px; }
+
+.status { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 500; }
+.status.active { background: rgba(16,185,129,0.15); color: var(--success); }
+.status.pending { background: rgba(245,158,11,0.15); color: var(--warning); }
+.status.late { background: rgba(239,68,68,0.15); color: var(--danger); }
+.status.paid { background: rgba(79,70,229,0.15); color: var(--primary); }
+
+.progress-bar { height: 6px; background: var(--border); border-radius: 3px; margin: 8px 0; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--success); border-radius: 3px; transition: width 0.3s ease; }
+
+.icon-btn.mark-paid { 
+  background: none; border: none; font-size: 1.2rem; cursor: pointer; 
+  padding: 4px; border-radius: 8px; transition: transform 0.1s;
+}
+.icon-btn.mark-paid:hover { transform: scale(1.1); background: var(--border); }
+.icon-btn.mark-paid.done { opacity: 0.6; cursor: default; }
+
+.btn-primary { background: var(--primary); color: white; border: none; padding: 10px 16px; border-radius: 10px; cursor: pointer; font-weight: 500; width: auto; }
+.btn-secondary { background: var(--border); color: var(--text); border: none; padding: 10px 16px; border-radius: 10px; cursor: pointer; width: auto; }
+.btn-primary:hover { background: var(--primary-hover); }
+.btn-secondary:hover { filter: brightness(0.95); }
+
+.empty-state { text-align: center; padding: 32px 16px; color: var(--text-secondary); }
+
+@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+@media (max-width: 480px) {
+  .list-item { flex-wrap: wrap; }
+  .actions { margin-left: 52px; margin-top: 8px; }
+}
