@@ -142,7 +142,7 @@
       console.warn('⚠️ Error calculando fecha:', e);
       return '---';
     }
-  }}
+   }
   function calculateTandaPreview(amt,part,freq,start) {
     const fd={weekly:7,biweekly:15,monthly:30}, tw=part, td=fd[freq]*tw;
     return {
@@ -588,4 +588,4 @@
   // 🏁 ARRANQUE
   // ========================================
   if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',init);}else{init();}
-})(); // ← FIN DEL IIFE
+ })(); // ← FIN DEL IIFE
