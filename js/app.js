@@ -16,7 +16,8 @@
   const state = {
     isAdmin: false,
     deferredPrompt: null,
-    currentView: 'dashboard'
+    currentView: 'dashboard',
+    newTandaDraft: null  // 👈 AGREGAR ESTA LÍNEA
   };
 
   // 📊 Registro de gráficos para evitar conflictos de Canvas
@@ -615,6 +616,14 @@
         case 'payments':
           el.pageTitle.textContent = '💳 Pagos';
           renderPayments();
+        case 'new-tanda':  // 👈 AGREGAR ESTE CASO
+          el.pageTitle.textContent = '➕ Nueva Tanda';
+          // Resetear formulario al entrar
+          if (newTandaForm.el) {
+            newTandaForm.el.reset();
+            newTandaForm.tempParticipants = [];
+            newTandaForm.updatePreview();
+          }          
           break;
       }
     }
@@ -814,9 +823,51 @@
   };
 
   // ========================================
-  // 🚀 INICIALIZACIÓN
+  // 📅 HELPERS: FECHAS Y CÁLCULOS
+  // ========================================
+  function addDays(date, days) {
+    const result = new Date(date);
+    result.setDate(result.getDate() + days);
+    return result;
+  }
+  
+  function formatDate(date, options = {}) {
+    return new Date(date).toLocaleDateString('es-MX', {
+      day: '2-digit', month: 'short', year: 'numeric', ...options
+    });
+  }
+  
+  function calculateTandaPreview(amount, participants, frequency, startDate) {
+    const freqDays = { weekly: 7, biweekly: 15, monthly: 30 };
+    const totalWeeks = participants;
+    const totalDays = freqDays[frequency] * totalWeeks;
+    const endDate = addDays(startDate, totalDays);
+    const nextDate = addDays(startDate, freqDays[frequency]);
+    
+    return {
+      duration: `${totalWeeks} ${frequency === 'weekly' ? 'semanas' : frequency === 'biweekly' ? 'quincenas' : 'meses'}`,
+      weekly: amount * participants,
+      total: amount * participants * totalWeeks,
+      endDate: formatDate(endDate),
+      nextDate: formatDate(nextDate)
+    };
+  }
+  
+  function getCurrencySymbol(code) {
+    return { MXN: '$', USD: '$', EUR: '€', COP: '$', PEN: 'S/' }[code] || '$';
+  }
+  
+  function formatCurrency(amount, currency = 'MXN') {
+    return new Intl.NumberFormat('es-MX', {
+      style: 'currency', currency, minimumFractionDigits: 0
+    }).format(amount);
+  }
+    
+  // ========================================
+  // 🚀 INICIALIZACIÓN PRINCIPAL
   // ========================================
   function init() {
+    // 1️⃣ Inicializaciones base
     initTheme();
     initDefaultData();
     checkSession();
@@ -825,81 +876,253 @@
     registerSW();
     initInstallPrompt();
     
-    // ✅ Inicializar modal de participante
-    if (modal.el) modal.init();    
+    // 2️⃣ Inicializar componentes UI
+    if (modal?.el) modal.init();              // Modal participante
+    if (newTandaForm?.el) newTandaForm.init(); // Formulario nueva tanda
     
-    // Agregar estilos para animaciones dinámicas
-    if (!document.getElementById('rondapay-styles')) {
-      const style = document.createElement('style');
-      style.id = 'rondapay-styles';
-      style.textContent = `
-        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
-        @keyframes slideIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
-        
-        .modal-overlay {
-          position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-          background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center;
-          z-index: 1000; padding: 16px;
-        }
-        .modal-card {
-          background: var(--surface); border-radius: 16px; padding: 20px;
-          max-width: 400px; width: 100%; box-shadow: var(--shadow);
-          animation: slideUp 0.3s ease;
-        }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-        .modal-footer { display: flex; gap: 8px; margin-top: 20px; justify-content: flex-end; }
-        .payment-history { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
-        .week-badge {
-          width: 28px; height: 28px; border-radius: 50%;
-          display: flex; align-items: center; justify-content: center;
-          font-size: 0.75rem; font-weight: 500; background: var(--border); color: var(--text);
-        }
-        .week-badge.paid { background: var(--success); color: white; }
-        .week-badge.received { box-shadow: 0 0 0 2px var(--primary); }
-        
-        .list-item { display: flex; align-items: center; gap: 12px; padding: 12px; }
-        .avatar {
-          width: 40px; height: 40px; border-radius: 50%;
-          background: var(--primary); color: white;
-          display: flex; align-items: center; justify-content: center;
-          font-weight: 600; font-size: 1.1rem; flex-shrink: 0;
-        }
-        .info { flex: 1; min-width: 0; }
-        .info h4 { margin: 0; font-size: 0.95rem; }
-        .info p { margin: 2px 0; font-size: 0.8rem; color: var(--text-secondary); }
-        .info .meta { font-size: 0.75rem; opacity: 0.8; }
-        .actions { display: flex; align-items: center; gap: 8px; }
-        .status { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 500; }
-        .status.active { background: rgba(16,185,129,0.15); color: var(--success); }
-        .status.pending { background: rgba(245,158,11,0.15); color: var(--warning); }
-        .status.late { background: rgba(239,68,68,0.15); color: var(--danger); }
-        .status.paid { background: rgba(79,70,229,0.15); color: var(--primary); }
-        
-        .progress-bar { height: 6px; background: var(--border); border-radius: 3px; margin: 8px 0; overflow: hidden; }
-        .progress-fill { height: 100%; background: var(--success); border-radius: 3px; transition: width 0.3s ease; }
-        
-        .icon-btn.mark-paid { 
-          background: none; border: none; font-size: 1.2rem; cursor: pointer; 
-          padding: 4px; border-radius: 8px; transition: transform 0.1s;
-        }
-        .icon-btn.mark-paid:hover { transform: scale(1.1); background: var(--border); }
-        .icon-btn.mark-paid.done { opacity: 0.6; cursor: default; }
-        
-        .btn-primary { background: var(--primary); color: white; border: none; padding: 10px 16px; border-radius: 10px; cursor: pointer; font-weight: 500; }
-        .btn-secondary { background: var(--border); color: var(--text); border: none; padding: 10px 16px; border-radius: 10px; cursor: pointer; }
-        .btn-primary:hover { background: var(--primary-hover); }
-        .btn-secondary:hover { filter: brightness(0.95); }
-        
-        .empty-state { text-align: center; padding: 32px 16px; color: var(--text-secondary); }
-        
-        @media (max-width: 480px) {
-          .list-item { flex-wrap: wrap; }
-          .actions { margin-left: 52px; margin-top: 8px; }
-        }
-      `;
-      document.head.appendChild(style);
+    // 3️⃣ Inyectar estilos dinámicos (solo si no existen)
+    injectDynamicStyles();
+    
+    // 4️⃣ Logging de diagnóstico (solo desarrollo)
+    if (window.location.hostname === 'localhost') {
+      console.log('🚀 RondaPay initialized', {
+        session: sessionStorage.getItem(CONFIG.SESSION_KEY) ? 'active' : 'guest',
+        theme: localStorage.getItem(CONFIG.THEME_KEY) || 'light',
+        tanda: Storage.get(CONFIG.DATA_KEY)?.name || 'none'
+      });
     }
+  }
+
+  // ========================================
+  // 🎨 INYECTOR DE ESTILOS DINÁMICOS
+  // ========================================
+  function injectDynamicStyles() {
+    if (document.getElementById('rondapay-styles')) return;
+    
+    const style = document.createElement('style');
+    style.id = 'rondapay-styles';
+    style.textContent = `
+      /* === Animaciones Globales === */
+      @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+      @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+      @keyframes slideIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+      @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+      /* === Modales === */
+      .modal-overlay {
+        position: fixed; inset: 0;
+        background: rgba(0,0,0,0.6);
+        display: flex; align-items: center; justify-content: center;
+        z-index: 1000; padding: 16px;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        animation: fadeIn 0.2s ease;
+      }
+      .modal-overlay.hidden { display: none !important; }
+      .modal-card {
+        background: var(--surface); border-radius: 20px; padding: 24px;
+        max-width: 420px; width: 100%; box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        animation: slideUp 0.3s ease;
+      }
+      .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+      .modal-header h3 { margin: 0; font-size: 1.1rem; }
+      .modal-footer, .form-actions { display: flex; gap: 12px; margin-top: 20px; justify-content: flex-end; }
+      
+      /* Modal Confirmación */
+      .modal-confirm { text-align: center; }
+      .modal-icon { font-size: 3rem; margin-bottom: 8px; display: block; }
+      .confirm-summary {
+        background: var(--bg); border-radius: 12px; padding: 16px;
+        text-align: left; margin: 16px 0;
+      }
+      .confirm-summary p { margin: 8px 0; display: flex; justify-content: space-between; font-size: 0.9rem; }
+      .confirm-summary strong { color: var(--text); }
+      .confirm-summary span { color: var(--text-secondary); }
+
+      /* === Listas y Participantes === */
+      .list-item {
+        display: flex; align-items: center; gap: 12px; padding: 12px;
+        background: var(--surface); border-radius: 12px; margin-bottom: 8px;
+        transition: transform 0.1s, box-shadow 0.2s;
+      }
+      .list-item:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+      .avatar {
+        width: 40px; height: 40px; border-radius: 50%;
+        background: var(--primary); color: white;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 600; font-size: 1.1rem; flex-shrink: 0;
+      }
+      .info { flex: 1; min-width: 0; }
+      .info h4 { margin: 0; font-size: 0.95rem; }
+      .info p { margin: 2px 0; font-size: 0.8rem; color: var(--text-secondary); }
+      .info .meta { font-size: 0.75rem; opacity: 0.8; }
+      .actions { display: flex; align-items: center; gap: 8px; }
+      
+      /* Estados */
+      .status { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 500; }
+      .status.active { background: rgba(16,185,129,0.15); color: var(--success); }
+      .status.pending { background: rgba(245,158,11,0.15); color: var(--warning); }
+      .status.late { background: rgba(239,68,68,0.15); color: var(--danger); }
+      .status.paid { background: rgba(79,70,229,0.15); color: var(--primary); }
+
+      /* Historial de pagos */
+      .payment-history { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+      .week-badge {
+        width: 28px; height: 28px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.75rem; font-weight: 500; background: var(--border); color: var(--text);
+      }
+      .week-badge.paid { background: var(--success); color: white; }
+      .week-badge.received { box-shadow: 0 0 0 2px var(--primary); }
+
+      /* Barras de progreso */
+      .progress-bar { height: 6px; background: var(--border); border-radius: 3px; margin: 8px 0; overflow: hidden; }
+      .progress-fill { height: 100%; background: var(--success); border-radius: 3px; transition: width 0.3s ease; }
+
+      /* Botones de acción */
+      .icon-btn {
+        background: none; border: none; font-size: 1.1rem; cursor: pointer;
+        padding: 6px; border-radius: 8px; transition: transform 0.1s, background 0.2s;
+        color: var(--text);
+      }
+      .icon-btn:hover { background: var(--border); transform: scale(1.05); }
+      .icon-btn.mark-paid.done { opacity: 0.6; cursor: default; }
+      .icon-btn.mark-paid.done:hover { transform: none; background: none; }
+
+      /* Botones principales */
+      .btn-primary, .btn-secondary, .btn-outline {
+        padding: 10px 16px; border-radius: 12px; font-weight: 500; cursor: pointer;
+        border: none; font-size: 0.95rem; transition: transform 0.1s, filter 0.2s, background 0.2s;
+      }
+      .btn-primary { background: var(--primary); color: white; }
+      .btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); }
+      .btn-secondary { background: var(--border); color: var(--text); }
+      .btn-secondary:hover { filter: brightness(0.95); transform: translateY(-1px); }
+      .btn-outline {
+        background: transparent; border: 2px dashed var(--border);
+        color: var(--text-secondary); width: 100%; text-align: center;
+      }
+      .btn-outline:hover { border-color: var(--primary); color: var(--primary); }
+      .btn-lg { padding: 14px 28px; font-size: 1rem; }
+
+      /* Estado vacío */
+      .empty-state { text-align: center; padding: 32px 16px; color: var(--text-secondary); }
+
+      /* === FORMULARIO: NUEVA TANDA === */
+      .page-header { margin-bottom: 24px; }
+      .page-header .subtitle { color: var(--text-secondary); margin: 4px 0 0; font-size: 0.95rem; }
+      
+      .tanda-form { display: flex; flex-direction: column; gap: 20px; }
+      .form-section {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: 16px; padding: 20px; margin: 0;
+      }
+      .form-section legend {
+        font-weight: 600; padding: 0 8px; color: var(--primary);
+        font-size: 1.05rem; width: auto; margin: 0;
+      }
+      .form-row { display: flex; flex-direction: column; gap: 16px; margin-bottom: 16px; }
+      .form-row.two-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .form-group { display: flex; flex-direction: column; gap: 6px; }
+      .form-group label { font-weight: 500; font-size: 0.9rem; }
+      .form-group small { color: var(--text-secondary); font-size: 0.75rem; margin-top: -4px; line-height: 1.3; }
+      .form-group input, .form-group select {
+        padding: 12px 14px; border: 2px solid var(--border); border-radius: 12px;
+        background: var(--bg); color: var(--text); font-size: 1rem;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        width: 100%;
+      }
+      .form-group input:focus, .form-group select:focus {
+        outline: none; border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(79,70,229,0.15);
+      }
+      .form-group input:invalid:not(:placeholder-shown) { border-color: var(--danger); }
+
+      /* Input con prefijo de moneda */
+      .input-with-prefix { position: relative; display: flex; align-items: center; }
+      .input-with-prefix .currency-prefix {
+        position: absolute; left: 14px; color: var(--text-secondary);
+        font-weight: 500; pointer-events: none; font-size: 1.1rem;
+      }
+      .input-with-prefix input { padding-left: 36px; }
+
+      /* Preview Card */
+      .preview-card {
+        background: linear-gradient(135deg, rgba(79,70,229,0.08), rgba(16,185,129,0.08));
+        border: 1px solid rgba(79,70,229,0.2); border-radius: 12px;
+        padding: 16px; margin-top: 8px;
+      }
+      .preview-card h4 { margin: 0 0 12px; font-size: 0.95rem; color: var(--primary); }
+      .preview-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+      .preview-item { display: flex; flex-direction: column; gap: 4px; }
+      .preview-label { font-size: 0.75rem; color: var(--text-secondary); }
+      .preview-value { font-weight: 600; font-size: 1.1rem; color: var(--text); }
+
+      /* Participantes Preview */
+      .participants-preview {
+        background: var(--bg); border-radius: 12px; padding: 12px;
+        min-height: 60px; display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;
+      }
+      .empty-preview {
+        width: 100%; text-align: center; color: var(--text-secondary);
+        font-size: 0.85rem; padding: 8px;
+      }
+      .participant-chip {
+        display: inline-flex; align-items: center; gap: 6px;
+        background: var(--surface); border: 1px solid var(--border);
+        padding: 6px 12px; border-radius: 20px; font-size: 0.85rem;
+      }
+      .participant-chip .remove {
+        background: none; border: none; color: var(--danger);
+        cursor: pointer; font-size: 1rem; padding: 0; line-height: 1;
+        display: flex; align-items: center; justify-content: center;
+        width: 18px; height: 18px; border-radius: 50%;
+      }
+      .participant-chip .remove:hover { background: rgba(239,68,68,0.1); }
+
+      /* Help text */
+      .help-text { color: var(--text-secondary); font-size: 0.85rem; margin: -8px 0 12px; }
+
+      /* Templates bar */
+      .templates-bar {
+        display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+        padding: 12px; background: var(--bg); border-radius: 12px; margin-bottom: 16px;
+      }
+      .templates-bar span { font-size: 0.85rem; color: var(--text-secondary); }
+      .btn-chip {
+        background: var(--surface); border: 1px solid var(--border);
+        padding: 6px 12px; border-radius: 20px; font-size: 0.8rem;
+        cursor: pointer; transition: all 0.2s;
+      }
+      .btn-chip:hover { border-color: var(--primary); color: var(--primary); }
+
+      /* === RESPONSIVE === */
+      @media (max-width: 600px) {
+        .form-row.two-cols { grid-template-columns: 1fr; }
+        .preview-grid { grid-template-columns: 1fr; }
+        .form-actions, .modal-footer { flex-direction: column; }
+        .form-actions .btn-primary, .form-actions .btn-secondary,
+        .modal-footer .btn-primary, .modal-footer .btn-secondary { width: 100%; }
+        .list-item { flex-wrap: wrap; }
+        .actions { margin-left: 52px; margin-top: 8px; }
+        .modal-card { padding: 20px 16px; }
+      }
+
+      @media (max-width: 480px) {
+        .preview-grid { grid-template-columns: 1fr; }
+        .participant-chip { font-size: 0.8rem; padding: 4px 10px; }
+      }
+
+      /* === TEMA OSCURO - AJUSTES === */
+      .theme-dark .preview-card {
+        background: linear-gradient(135deg, rgba(79,70,229,0.15), rgba(16,185,129,0.15));
+        border-color: rgba(79,70,229,0.3);
+      }
+      .theme-dark .modal-card { box-shadow: 0 20px 40px rgba(0,0,0,0.4); }
+      .theme-dark .btn-chip:hover { background: rgba(79,70,229,0.2); }
+    `;
+    document.head.appendChild(style);
   }
 
   // ========================================
@@ -1054,7 +1277,237 @@
       showToast(`🗑️ ${removed.name} eliminado`);
     }
   }
-
+  // ========================================
+  // 🆕 FORMULARIO: NUEVA TANDA
+  // ========================================
+  const newTandaForm = {
+    el: document.getElementById('form-new-tanda'),
+    fields: {},
+    tempParticipants: [],
+    
+    init() {
+      if (!this.el) return;
+      
+      // Cache de campos
+      this.fields = {
+        name: document.getElementById('t-name'),
+        amount: document.getElementById('t-amount'),
+        currency: document.getElementById('t-currency'),
+        frequency: document.getElementById('t-frequency'),
+        participants: document.getElementById('t-participants'),
+        start: document.getElementById('t-start')
+      };
+      
+      // Establecer fecha mínima = hoy
+      const today = new Date().toISOString().split('T')[0];
+      this.fields.start.min = today;
+      this.fields.start.value = today;
+      
+      // Event listeners para preview en tiempo real
+      Object.values(this.fields).forEach(field => {
+        field?.addEventListener('input', () => this.updatePreview());
+        field?.addEventListener('change', () => this.updatePreview());
+      });
+      
+      // Preview inicial
+      this.updatePreview();
+      
+      // Agregar participante rápido
+      document.getElementById('btn-add-participant-inline')?.addEventListener('click', () => {
+        this.addTempParticipant();
+      });
+      
+      // Submit del formulario
+      this.el.addEventListener('submit', (e) => this.handleSubmit(e));
+      
+      // Modal de confirmación
+      this.initConfirmModal();
+    },
+    
+    updatePreview() {
+      const amount = parseFloat(this.fields.amount?.value) || 0;
+      const participants = parseInt(this.fields.participants?.value) || 2;
+      const frequency = this.fields.frequency?.value || 'weekly';
+      const startDate = this.fields.start?.value || new Date().toISOString().split('T')[0];
+      const currency = this.fields.currency?.value || 'MXN';
+      
+      const preview = calculateTandaPreview(amount, participants, frequency, new Date(startDate));
+      const symbol = getCurrencySymbol(currency);
+      
+      // Actualizar DOM
+      document.getElementById('preview-duration').textContent = preview.duration;
+      document.getElementById('preview-weekly').textContent = `${symbol}${preview.weekly.toLocaleString()}`;
+      document.getElementById('preview-total').textContent = `${symbol}${preview.total.toLocaleString()}`;
+      document.getElementById('preview-end-date').textContent = preview.endDate;
+      document.getElementById('preview-next-date').textContent = preview.nextDate;
+      
+      // Actualizar preview de participantes
+      this.renderTempParticipants();
+    },
+    
+    addTempParticipant(name = '', phone = '') {
+      if (this.tempParticipants.length >= 50) {
+        showToast('⚠️ Máximo 50 participantes', 'warning');
+        return;
+      }
+      
+      // Si no hay datos, mostrar prompt simple (mejorar con modal después)
+      if (!name) {
+        name = prompt('👤 Nombre del participante:');
+        if (!name) return;
+      }
+      if (!phone) {
+        phone = prompt('📱 Teléfono (10 dígitos, opcional):') || '';
+      }
+      
+      this.tempParticipants.push({
+        id: Date.now() + Math.random(),
+        name: name.trim(),
+        phone: phone.trim(),
+        turn: this.tempParticipants.length + 1
+      });
+      
+      this.updatePreview();
+      showToast(`✅ ${name} agregado temporalmente`);
+    },
+    
+    removeTempParticipant(id) {
+      this.tempParticipants = this.tempParticipants.filter(p => p.id !== id);
+      this.updatePreview();
+    },
+    
+    renderTempParticipants() {
+      const container = document.getElementById('participants-preview');
+      if (!container) return;
+      
+      if (!this.tempParticipants.length) {
+        container.innerHTML = '<div class="empty-preview">Los participantes aparecerán aquí...</div>';
+        return;
+      }
+      
+      container.innerHTML = this.tempParticipants.map(p => `
+        <span class="participant-chip">
+          ${p.name}
+          <button type="button" class="remove" data-id="${p.id}" title="Eliminar">✕</button>
+        </span>
+      `).join('');
+      
+      // Event delegation para eliminar
+      container.querySelectorAll('.remove').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.removeTempParticipant(parseInt(e.currentTarget.dataset.id));
+        });
+      });
+    },
+    
+    initConfirmModal() {
+      const modal = document.getElementById('modal-confirm-tanda');
+      const closeBtns = modal?.querySelectorAll('.modal-close');
+      const confirmBtn = document.getElementById('btn-confirm-create');
+      
+      closeBtns?.forEach(btn => {
+        btn.addEventListener('click', () => modal.classList.add('hidden'));
+      });
+      
+      modal?.addEventListener('click', (e) => {
+        if (e.target === modal) modal.classList.add('hidden');
+      });
+      
+      confirmBtn?.addEventListener('click', () => {
+        this.createTanda();
+        modal.classList.add('hidden');
+      });
+    },
+    
+    handleSubmit(e) {
+      e.preventDefault();
+      
+      // Validación básica
+      const name = this.fields.name?.value.trim();
+      const amount = parseFloat(this.fields.amount?.value);
+      
+      if (!name || name.length < 3) {
+        showToast('❌ El nombre debe tener al menos 3 caracteres', 'error');
+        this.fields.name?.focus();
+        return;
+      }
+      
+      if (!amount || amount < 10) {
+        showToast('❌ El monto mínimo es $10', 'error');
+        this.fields.amount?.focus();
+        return;
+      }
+      
+      // Preparar resumen para confirmación
+      const preview = calculateTandaPreview(
+        amount,
+        parseInt(this.fields.participants.value),
+        this.fields.frequency.value,
+        new Date(this.fields.start.value)
+      );
+      
+      document.getElementById('confirm-name').textContent = name;
+      document.getElementById('confirm-amount').textContent = formatCurrency(amount, this.fields.currency.value);
+      document.getElementById('confirm-participants').textContent = this.fields.participants.value;
+      document.getElementById('confirm-duration').textContent = preview.duration;
+      
+      // Mostrar modal de confirmación
+      document.getElementById('modal-confirm-tanda')?.classList.remove('hidden');
+    },
+    
+    createTanda() {
+      const tanda = {
+        id: crypto.randomUUID?.() || Date.now().toString(36),
+        name: this.fields.name.value.trim(),
+        amount: parseFloat(this.fields.amount.value),
+        currency: this.fields.currency.value,
+        frequency: this.fields.frequency.value,
+        startDate: this.fields.start.value,
+        totalWeeks: parseInt(this.fields.participants.value),
+        currentWeek: 1,
+        createdAt: new Date().toISOString(),
+        participants: this.tempParticipants.length ? 
+          this.tempParticipants.map((p, i) => ({
+            id: i + 1,
+            name: p.name,
+            phone: p.phone,
+            status: 'active',
+            paidWeeks: [],
+            nextTurn: p.turn,
+            received: false
+          })) :
+          [] // Se pueden agregar después
+      };
+      
+      // Guardar y limpiar
+      Storage.set(CONFIG.DATA_KEY, tanda);
+      this.tempParticipants = [];
+      
+      // Resetear formulario
+      this.el?.reset();
+      this.updatePreview();
+      
+      // Navegar al dashboard y actualizar UI
+      showToast('🎉 ¡Tanda creada exitosamente!');
+      renderView('dashboard');
+      
+      // Si no hay participantes, sugerir agregar
+      if (!tanda.participants.length) {
+        setTimeout(() => {
+          showToast('💡 Tip: Agrega participantes desde el menú 👥', 'info');
+        }, 2000);
+      }
+    }
+  };
+    
+   function generateShareLink(tanda) {
+    const config = btoa(JSON.stringify({
+      n: tanda.name, a: tanda.amount, c: tanda.currency,
+      f: tanda.frequency, p: tanda.totalWeeks
+    }));
+    return `${window.location.origin}${window.location.pathname}?template=${config}`;
+  }   
   // ========================================
   // ✏️ EDITAR PARTICIPANTE (placeholder)
   // ========================================
