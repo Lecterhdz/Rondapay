@@ -2,7 +2,7 @@
 (() => {
   // 🔑 CONFIGURACIÓN (reemplaza con tus valores reales)
   const SUPABASE_URL = 'https://TU-PROYECTO.supabase.co';
-  const SUPABASE_ANON_KEY = 'TU-ANON-KEY';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImplYWFydmlmcXJsenllenFkdHJjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0OTI1NzksImV4cCI6MjA5NDA2ODU3OX0._8jJhG1TTkP_n9DDzLw36mNDYpk9zgD5pLeFzmEG5FU';
   
   // Inicializar cliente
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
