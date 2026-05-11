@@ -1,4 +1,27 @@
 (() => {
+  // 🔗 Backend: Supabase (fallback a localStorage si no está disponible)
+  const useSupabase = typeof window.SyncDB !== 'undefined';
+  const DataLayer = useSupabase ? window.SyncDB : {
+    // Fallback compatible con tu código actual
+    getActiveTanda: () => MultiTanda.getActive(),
+    saveTanda: (t) => { MultiTanda.save(t.id, t); MultiTanda.setActive(t.id); },
+    markPayment: async (pid, week, amount) => {
+      // Fallback local
+      const t = getTanda();
+      const p = t.participants.find(x => x.id === pid);
+      if (p) {
+        const idx = p.paidWeeks.indexOf(week);
+        if (idx === -1) p.paidWeeks.push(week);
+        else p.paidWeeks.splice(idx, 1);
+        MultiTanda.save(t.id, t);
+      }
+    },
+    subscribeToTanda: () => ({ unsubscribe: () => {} }), // No-op fallback
+    signInWithLicense: async (key) => ({ error: key !== 'RONDA2026' ? 'Invalid' : null }),
+    signOut: () => {},
+    getCurrentUser: async () => ({ data: { user: key === 'RONDA2026' ? { id: 'local' } : null } })
+  };
+  
   // ========================================
   // ⚙️ CONFIGURACIÓN GLOBAL
   // ========================================
@@ -130,14 +153,22 @@
     clearCache() { this._cache.clear(); }
   };
 
-  function getTanda() {
-    MultiTanda.migrateLegacy();
-    return MultiTanda.getActive();
+  // Después (compatibilidad total):
+  function getTanda() { 
+    return useSupabase ? DataLayer.getActiveTanda() : MultiTanda.getActive(); 
   }
-  
-  function saveTanda(tanda) {
-    if (!tanda.id) tanda.id = crypto.randomUUID?.() || Date.now().toString();
-    MultiTanda.save(tanda.id, tanda);
+  async function saveTanda(tanda) { 
+    if (useSupabase) {
+      try {
+        await DataLayer.saveTanda(tanda);
+      } catch (e) {
+        // Fallback a localStorage si falla
+        MultiTanda.save(t.id, tanda);
+        console.warn('⚠️ Guardado en localStorage por error de red');
+      }
+    } else {
+      MultiTanda.save(t.id, tanda);
+    }
   }
 
   // ========================================
@@ -683,6 +714,23 @@
   // ========================================
   function renderPaymentsMatrix(weekFilter = 'all') {
     const t = getTanda();
+    if (!t) return;
+    
+    // Suscribirse a cambios en tiempo real (solo si es backend)
+    if (useSupabase && !window._tandaSubscription) {
+      window._tandaSubscription = DataLayer.subscribeToTanda(t.id, (change) => {
+        if (change.type === 'participant_change' || change.type === 'payment_change') {
+          // Re-renderizar solo si estamos en esta vista
+          if (state.currentView === 'payments') {
+            renderPaymentsMatrix(weekFilter);
+          }
+          if (state.currentView === 'dashboard') {
+            initCharts();
+          }
+        }
+      });
+    }
+    
     const container = document.getElementById('payments-matrix');
     const weeksHeader = document.getElementById('weeks-header');
     const matrixBody = document.getElementById('matrix-body');
@@ -808,32 +856,42 @@
     }
   }
   
-  function togglePaymentForWeek(pid, week) {
+  async function togglePaymentForWeek(pid, week) {
     const t = getTanda();
     const p = t.participants.find(x => x.id === pid);
     if (!p) return;
     
-    const idx = p.paidWeeks.indexOf(week);
+    const amount = t.amount;
     
-    if (idx === -1) {
-      p.paidWeeks.push(week);
-      p.paidWeeks.sort((a, b) => a - b);
+    if (useSupabase) {
+      // Backend: llamar a API
+      await DataLayer.markPayment(pid, week, amount);
+      // El cambio llegará por realtime subscription, pero actualizamos UI inmediatamente
+      _optimisticUpdate(pid, week);
     } else {
-      p.paidWeeks.splice(idx, 1);
+      // Local: actualizar directamente
+      const idx = p.paidWeeks.indexOf(week);
+      if (idx === -1) {
+        p.paidWeeks.push(week);
+        p.paidWeeks.sort((a,b) => a-b);
+      } else {
+        p.paidWeeks.splice(idx, 1);
+      }
+      saveTanda(t);
+      _optimisticUpdate(pid, week);
     }
     
-    clearTimeout(state.saveTimeout);
-    state.saveTimeout = setTimeout(() => saveTanda(t), 500);
-    
-    const cell = document.querySelector(`.payment-cell[data-participant="${pid}"][data-week="${week}"] .payment-status`);
-    if (cell) {
-      const isPaid = idx === -1;
-      const isLate = week < t.currentWeek && !isPaid;
-      cell.className = `payment-status ${isPaid ? 'paid' : isLate ? 'late' : 'pending'}`;
-      cell.textContent = isPaid ? '✅' : isLate ? '❌' : '⏳';
+    function _optimisticUpdate(pid, week) {
+      // Actualizar UI sin esperar respuesta del servidor
+      const cell = document.querySelector(`.payment-cell[data-participant="${pid}"][data-week="${week}"] .payment-status`);
+      if (cell) {
+        const isPaid = !cell.textContent.includes('✅');
+        const isLate = week < t.currentWeek && !isPaid;
+        cell.className = `payment-status ${isPaid ? 'paid' : isLate ? 'late' : 'pending'}`;
+        cell.textContent = isPaid ? '✅' : isLate ? '❌' : '⏳';
+      }
+      showToast(isPaid ? `✅ Pago registrado - Semana ${week}` : `⚠️ Pago desmarcado`, isPaid ? 'success' : 'warning');
     }
-    
-    showToast(idx === -1 ? `✅ Pago registrado - Semana ${week}` : `⚠️ Pago desmarcado`, idx === -1 ? 'success' : 'warning');
   }
   
   function updateRowTotal(participantId, tanda) {
@@ -889,11 +947,21 @@
   }
 
   // ========================================
-  // 🔄 VISTAS
+  // 🔄 VISTAS (Con gestión de subscriptions)
   // ========================================
   function renderView(viewName) {
+    // 🧹 Limpieza: Si salimos de vista de pagos, desuscribir de realtime
+    if (state.currentView === 'payments' && viewName !== 'payments') {
+      if (window._tandaSubscription) {
+        window._tandaSubscription.unsubscribe?.();
+        window._tandaSubscription = null;
+        console.log('🔌 Subscription de tanda limpiada');
+      }
+    }
+    
     state.currentView = viewName;
     
+    // Ocultar todas las vistas y aplicar inert para accesibilidad
     document.querySelectorAll('.view').forEach(view => {
       view.classList.remove('active');
       view.setAttribute('inert', '');
@@ -904,23 +972,50 @@
       target.classList.add('active');
       target.removeAttribute('inert');
       
+      // Renderizar contenido específico de cada vista
       switch(viewName) {
         case 'dashboard':
           el.pageTitle.textContent = '📊 Dashboard';
-          setTimeout(() => initCharts(), 50);
+          // Pequeño delay para asegurar que el canvas está en el DOM
+          setTimeout(() => {
+            if (typeof initCharts === 'function') initCharts();
+          }, 50);
           break;
+          
         case 'participants':
           el.pageTitle.textContent = '👥 Participantes';
-          renderParticipants();
+          if (typeof renderParticipants === 'function') renderParticipants();
           break;
+          
         case 'payments':
           el.pageTitle.textContent = '💳 Pagos';
-          renderPaymentsMatrix();
+          if (typeof renderPaymentsMatrix === 'function') renderPaymentsMatrix();
+          
+          // 🔄 Suscribirse a cambios en tiempo real (solo si hay backend)
+          if (typeof useSupabase !== 'undefined' && useSupabase && typeof DataLayer !== 'undefined') {
+            const tanda = getTanda?.();
+            if (tanda?.id && !window._tandaSubscription) {
+              console.log('📡 Suscribiendo a cambios en tanda:', tanda.id);
+              window._tandaSubscription = DataLayer.subscribeToTanda(tanda.id, (change) => {
+                // Re-renderizar solo si el cambio es relevante
+                if (change?.type === 'participant_change' || change?.type === 'payment_change') {
+                  if (state.currentView === 'payments') {
+                    renderPaymentsMatrix();
+                  }
+                  if (state.currentView === 'dashboard') {
+                    initCharts?.();
+                  }
+                  showToast('🔄 Datos actualizados', 'info');
+                }
+              });
+            }
+          }
           break;
+          
         case 'new-tanda':
           el.pageTitle.textContent = '➕ Nueva Tanda';
           if (newTandaForm?.el) {
-            newTandaForm.el.reset();
+            newTandaForm.el.reset?.();
             newTandaForm.tempParticipants = [];
             newTandaForm.updatePreview?.();
           }
@@ -928,10 +1023,22 @@
       }
     }
     
+    // Actualizar estado activo en menú de navegación
     document.querySelectorAll('[data-view]').forEach(link => {
       const parent = link.parentElement;
-      if (parent) parent.classList.toggle('active-link', link.dataset.view === viewName);
+      if (parent) {
+        parent.classList.toggle('active-link', link.dataset.view === viewName);
+      }
     });
+    
+    // 🎯 Focus management para accesibilidad
+    if (target) {
+      const firstInteractive = target.querySelector('button:not([disabled]), input:not([disabled]), select:not([disabled])');
+      if (firstInteractive && viewName !== 'payments') {
+        // No hacer focus automático en payments para no interferir con la matrix
+        setTimeout(() => firstInteractive.focus?.(), 100);
+      }
+    }
   }
 
   // ========================================
@@ -989,21 +1096,57 @@
     }
   }
   
-  function login() {
+  async function login() {
     const key = el.licenseInput?.value.trim();
     if (!key) {
       showLoginError('Ingresa tu clave');
       return;
     }
-    if (key === CONFIG.VALID_LICENSE) {
-      sessionStorage.setItem(CONFIG.SESSION_KEY, 'active');
-      showApp();
-      renderView('dashboard');
-      showToast('✅ Bienvenido a RondaPay');
+    
+    if (useSupabase) {
+      // Backend: autenticar con Supabase
+      showToast('🔐 Conectando...', 'info');
+      const { user, error } = await DataLayer.signInWithLicense(key);
+      
+      if (error || !user) {
+        showLoginError('Clave inválida o sin conexión');
+        // Fallback: permitir login local si está offline
+        if (!navigator.onLine && key === CONFIG.VALID_LICENSE) {
+          _proceedWithLocalLogin(key);
+        }
+        return;
+      }
+      
+      _proceedWithCloudLogin(user, key);
     } else {
-      showLoginError('Clave inválida');
-      if (el.licenseInput) el.licenseInput.focus();
+      // Local: tu lógica actual
+      if (key === CONFIG.VALID_LICENSE) {
+        _proceedWithLocalLogin(key);
+      } else {
+        showLoginError('Clave inválida');
+        el.licenseInput?.focus();
+      }
     }
+  }
+  
+  function _proceedWithLocalLogin(key) {
+    sessionStorage.setItem(CONFIG.SESSION_KEY, 'active');
+    showApp();
+    renderView('dashboard');
+    showToast('✅ Bienvenido a RondaPay (modo offline)');
+  }
+  
+  async function _proceedWithCloudLogin(user, key) {
+    sessionStorage.setItem(CONFIG.SESSION_KEY, 'active');
+    sessionStorage.setItem('rondapay_user_id', user.id);
+    
+    // Cargar tandas del servidor
+    showToast('📡 Sincronizando...', 'info');
+    await DataLayer._refreshTandas();
+    
+    showApp();
+    renderView('dashboard');
+    showToast('✅ Bienvenido a RondaPay (sincronizado)');
   }
   
   function showLoginError(message) {
@@ -1819,6 +1962,20 @@
     `;
     document.head.appendChild(style);
   }
+  // ========================================
+  // 🧹 CLEANUP GLOBAL (para evitar memory leaks)
+  // ========================================
+  function cleanupSubscriptions() {
+    if (window._tandaSubscription) {
+      window._tandaSubscription.unsubscribe?.();
+      window._tandaSubscription = null;
+      console.log('🔌 Subscriptions limpiadas');
+    }
+  }
+  
+  // Limpiar al cerrar pestaña o navegar fuera
+  window.addEventListener('beforeunload', cleanupSubscriptions);
+  window.addEventListener('pagehide', cleanupSubscriptions);  
   
   // ========================================
   // INICIALIZACIÓN
